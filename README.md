@@ -2,6 +2,8 @@
 
 Aplicativo **local** em Python/Streamlit para ordenar fotografias, reconhecer etiquetas SKU, identificar peças com Gemini, remover fundo com ONNX CPU e criar uma planilha Excel. Não usa banco de dados, contas de usuários, nuvem de armazenamento ou sincronização de fotos.
 
+**Versão 1.1.0 — identificação corrigida, nomes padronizados e Excel no padrão da empresa.** Para atualizar uma instalação existente sem reinstalar Python ou dependências, consulte [COMO_ATUALIZAR.txt](COMO_ATUALIZAR.txt).
+
 ## Começar no Windows
 
 1. Instale **Python 3.12 de 64 bits**, de [python.org](https://www.python.org/downloads/windows/), com pip, launcher `py` e Tcl/Tk (componentes do instalador). Marque a opção de adicionar Python ao PATH.
@@ -21,12 +23,28 @@ Opcional: instale Tesseract OCR pelo projeto [UB Mannheim](https://github.com/UB
 3. Escolha o destino. O seletor nativo abre **no computador que executa o Python**. Em um ambiente remoto sem desktop, digite o caminho local desse ambiente. Para salvar no Windows do usuário, execute o aplicativo nesse Windows.
 4. Clique em **INICIAR PROCESSAMENTO**. A etiqueta inicia um grupo e não existe quantidade fixa de fotos por peça. OCR exige o marcador `SKU`; inscrições OEM sozinhas não iniciam grupos. Gemini classifica fotos de produto, etiqueta, medida e peso. Só produtos passam pelo removedor de fundo.
 5. Confira os resultados. Por padrão a pesquisa aguarda sua revisão dos nomes; salve alterações e clique em **Pesquisar preços dos nomes salvos**. Desmarque “Conferir nomes antes da pesquisa” para executar as etapas em sequência. Pesquisar preços também pode ser desativado.
-6. Confira referências, informe os valores finais desejados e salve no Excel. A coluna **FINAL começa vazia**, mesmo quando há preços de referência.
+6. Confira referências, informe os valores finais desejados e salve no Excel. A coluna **VALOR FINAL começa vazia** para peças novas, mesmo quando há preços de referência. Valores já existentes na planilha selecionada são preservados.
+
+### Nomes e planilha no padrão da empresa
+
+O nome segue uma regra fixa: **PEÇA · LADO/POSIÇÃO · MARCA · MODELO · ANOS**, em maiúsculas. Exemplos: `PORTA L.D RENAULT DUSTER 14-20` e `PORTA L.E RENAULT SANDERO 12-22`. Usa `L.D`/`L.E`; quando a posição também está confirmada, usa `D.D`/`D.E`/`T.D`/`T.E`. Marcas usam `VW` e `GM`, como na referência enviada. Sinônimos do catálogo, como motor de arranque/motor de partida, recebem o mesmo nome. Kit, carcaça e peça completa continuam distintos. Informações desconhecidas não são inventadas.
+
+O Excel usa cinco colunas: **PECAS AVULSAS, MENOR VALOR, MAIOR VALOR, VALOR MEDIO e VALOR FINAL**, com cabeçalho verde e SKU junto do nome (`024 - PORTA L.D RENAULT DUSTER 14-20`). A aba `REFERÊNCIAS` mantém os anúncios consultados.
+
+Para continuar uma planilha já existente, selecione **Planilha existente (opcional)** antes de processar. O programa salva uma cópia privada `BASE_PLANILHA.xlsx` na pasta do lote. SKUs já cadastrados aproveitam o nome informado pela empresa; linhas existentes, fórmulas, valores finais e outras abas são preservados. Novos SKUs são acrescentados. A planilha original permanece intacta. SKUs repetidos são sinalizados e não sobrescrevem linhas existentes.
+
+Para atualizar resultados antigos sem chamar a IA, abra o lote e clique em **Padronizar nomes e Excel deste lote**. Para refazer uma identificação que falhou, use **Reanalisar lote com a IA**.
+
+Antes de criar o lote, a versão 1.1.0 testa a análise Gemini com a primeira foto válida e reutiliza essa resposta. Sem chave ou com falha global da API, mostra o motivo e interrompe a análise; não produz uma lista vazia como resultado concluído. Sem Gemini, o processamento local exige TIPO e SKU conferidos manualmente na sequência.
+
+### Recuperar um lote que ficou todo não identificado
+
+Abra **Abrir lote salvo**, informe a pasta `PRECIFICACAO_...` que contém `lote.json` e carregue os resultados. Clique em **Reanalisar lote com a IA**. O programa relê as fotos, classifica, agrupa e identifica em uma nova pasta; preserva o lote anterior. Usa as cópias em `ORIGINAIS` se as fontes originais não estiverem disponíveis. Classificações conferidas manualmente são mantidas; resultados automáticos antigos são analisados novamente.
 
 ### Revisões sem misturar peças
 
 - SKU ilegível, imagem desconhecida ou arquivo corrompido cria uma **barreira**: as fotos seguintes ficam em grupo de revisão, sem receber o SKU da peça anterior. Essa decisão conservadora pode separar uma peça em mais de um grupo até a revisão.
-- Classificações de tipo com confiança inferior a 80% também criam uma barreira. Identificações de peça abaixo de 80% aguardam a confirmação do nome pelo botão **Salvar nomes e valores finais no Excel** antes de pesquisar preços.
+- Etiquetas com SKU abaixo de 80% não recebem um código presumido. Fotos classificadas como Produto com confiança de 60% a 79% continuam disponíveis para identificação, com revisão sinalizada; a confiança original não é aumentada. Tipos desconhecidos ou muito incertos continuam isolados para impedir mistura. Identificações de peça abaixo de 80% aguardam a confirmação do nome antes da pesquisa.
 - Clique em **Levar classificações à conferência da sequência**, corrija TIPO/SKU e processe um novo lote. A coluna SKU é texto e mantém `024`, por exemplo. Em fotos de produto, deixe SKU vazio; o código é lido na foto de etiqueta.
 - SKUs repetidos são mantidos em grupos separados e sinalizados. Se você confirmar que a etiqueta repetida pertence à mesma peça do grupo imediatamente anterior, marque **ETIQUETA REPETIDA DA MESMA PEÇA** na sequência. A união só acontece quando o SKU lido é idêntico ao grupo atual; a foto da etiqueta é preservada. Não faça união sem conferir a peça.
 - Se o recorte apagar detalhes, marque **PRESERVAR FUNDO ORIGINAL** na linha daquela foto e processe novo lote. Essa alternativa centraliza a fotografia intacta em uma tela branca; o fundo dentro da foto permanece, para não destruir a peça. Não há IA generativa reconstruindo detalhes.
@@ -47,7 +65,7 @@ destino/
     └── lote.json               # estado, evidências, pendências e referências; sem chaves
 ```
 
-Pastas incluem horário e um identificador para impedir sobrescrita. O nome real do SKU é conservado no Excel e no manifesto; caracteres proibidos pelo Windows são substituídos só nos nomes de arquivos. Resultados são gravados a cada imagem/produto. A planilha tem as abas `PRECIFICAÇÃO` e `REFERÊNCIAS`, fonte Calibri 11, filtros, cabeçalho congelado e valores em reais.
+Pastas incluem horário e um identificador para impedir sobrescrita. O nome real do SKU é conservado no Excel e no manifesto; caracteres proibidos pelo Windows são substituídos só nos nomes de arquivos. Resultados são gravados a cada imagem/produto. A planilha tem as abas `Planilha1` e `REFERÊNCIAS` (ou mantém o nome da aba de estoque existente), fonte Calibri 11, filtros, cabeçalho congelado e valores em reais.
 
 As imagens finais são JPG RGB, exatamente **1200 × 1200**, qualidade padrão **92**. O objeto é recortado pelo alfa e ampliado ou reduzido com LANCZOS, sem deformação. Há **ao menos 36 px brancos** em cada borda: a composição usa uma reserva de 40 px para evitar contaminação das bordas pela compressão JPEG, dentro do máximo útil de 1128 × 1128. Metadados EXIF, inclusive GPS, não são copiados para as imagens finais.
 
@@ -98,11 +116,13 @@ Sem referências suficientes, os preços ficam vazios. Texto de resposta de IA, 
 
 ## Gemini, privacidade e consumo
 
-O projeto usa **`google-genai`**, saída JSON com esquema Pydantic e validação de confiança. Atributos sem evidência devem ficar nulos. O modelo padrão configurável `gemini-flash-latest` foi escolhido a partir dos exemplos atuais do [README oficial do SDK](https://github.com/googleapis/python-genai), consultado em 04/11/2026. É um alias e pode mudar; selecione um modelo fixo permitido na sua conta para controlar versões e custos. A disponibilidade na sua conta só pode ser confirmada com sua chave.
+O projeto usa **`google-genai`**, JSON validado e campos de nome, tipo, confiança e evidência obrigatórios na resposta. Atributos sem evidência continuam nulos. O modelo padrão é **`gemini-3.5-flash-lite`**, validado numa chamada real em 04/11/2026. O alias anterior `gemini-flash-latest` apresentou HTTP 503 no teste real; aliases `latest` antigos agora são convertidos ao padrão estável. O campo de modelo continua editável. Se outro modelo escolhido retornar 404 ou 503, o programa tenta o padrão e informa a troca; o modelo efetivamente utilizado aparece nos resultados.
+
+A identificação separa nome funcional de aplicação exata: uma roda pode ser identificada como “roda com pneu” mesmo sem comprovar fabricante, veículo ou OEM. Esses atributos não serão preenchidos por dedução. A primeira chamada de identificação não é iniciada com uma suposta resposta anterior de “Peça não identificada”.
 
 As imagens enviadas são JPEGs otimizados sem EXIF (até 2000 px no lado maior). Identificação usa blocos de até seis fotos, uma peça de cada vez. O Google recebe essas imagens e consultas sob os termos da API contratada; o programa não faz upload permanente pela Files API nem usa armazenamento de terceiros. Não envie dados que não queira compartilhar com esse serviço.
 
-Há pausa configurável, limite de chamadas por operação e no máximo três tentativas em erros temporários. A tela apresenta chamadas, tokens de entrada/saída reportados e chamadas de pesquisa. Não inventa uma estimativa de custo em reais: faturamento de tokens e Grounding depende do modelo, conta e [preços do Google](https://ai.google.dev/gemini-api/docs/pricing). Limite de cota e respostas inválidas viram pendências, sem parar as outras peças. Chaves não são incluídas em mensagens de erro persistidas.
+Há pausa configurável, limite de chamadas por operação e no máximo três tentativas em erros temporários. A tela apresenta chamadas, tokens de entrada/saída e chamadas de pesquisa. O custo em reais depende do modelo, conta e [preços do Google](https://ai.google.dev/gemini-api/docs/pricing). Arquivos corrompidos e respostas inválidas isoladas viram pendências. Falhas globais de chave, cota, conexão ou serviço interrompem a análise preservando o progresso disponível, com a causa visível. Chaves não são incluídas nas mensagens persistidas. A situação de análise e a situação dos preços são exibidas separadamente.
 
 Destinos de rede utilizados: `generativelanguage.googleapis.com` (Gemini), `api.mercadolibre.com` (API), `http2.mlstatic.com`/`http.mlstatic.com` (imagens), `github.com`/`release-assets.githubusercontent.com` (modelo) e `pypi.org`/`files.pythonhosted.org` (instalação). Grounding executa buscas no serviço Google; o aplicativo não navega automaticamente em links arbitrários.
 
@@ -139,3 +159,5 @@ RUN_MODEL_TEST=1 MODEL_TEST_IMAGE=/caminho/foto.jpg python -m pytest tests/test_
 O teste OCR real requer Tesseract instalado. Consulte [VALIDACAO.md](VALIDACAO.md) para os resultados da execução desta entrega. Testes simulados validam lógica e erros; não comprovam identificação de veículos, preços ou acesso remoto real. Esta entrega foi executada em Linux/Python 3.12. A execução nativa de `iniciar.bat`, os seletores Windows e a qualidade em fotos do seu estoque ainda precisam ser conferidos no Windows.
 
 Os testes da página estática usam Node.js, se disponível, para exercitar seu script sem rede. Node.js não é necessário para executar o programa ou publicar o HTML. Sem Node.js, esses testes de script são pulados e a verificação de integridade da página continua executando em Python.
+
+O teste de integração real com Gemini é opt-in e pode gerar cobrança. Defina `RUN_GEMINI_LIVE_TEST=1`, `GEMINI_API_KEY` e `GEMINI_TEST_PRODUCT_IMAGE` para executá-lo. Ele valida uma etiqueta de teste, a fotografia informada, o agrupamento, a geração de JPG e a planilha. Sem a opção, as APIs são simuladas nos testes normais.

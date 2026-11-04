@@ -60,6 +60,8 @@ def load_batch(folder: Path) -> Batch:
     batch = Batch.model_validate_json((root / "lote.json").read_text(encoding="utf-8"))
     # Apenas lotes locais desta pasta podem ser retomados; não seguir destinos externos.
     batch.folder = root
+    if batch.workbook_template and (root / "BASE_PLANILHA.xlsx").is_file():
+        batch.workbook_template = root / "BASE_PLANILHA.xlsx"
     for product in batch.products:
         target = (root / product.folder.name).resolve()
         if target.parent != root:

@@ -19,8 +19,24 @@ class SkuDetector:
     def __init__(self, ai=None):
         self.ai = ai
         self.ocr_available = True
+        self._checked = {}
+
+    def validate_connection(self, paths):
+        if not self.ai:
+            return
+        for path in paths:
+            try:
+                with open_image(path):
+                    pass
+            except Exception:
+                continue
+            result = self.ai.classify(path)
+            self._checked[str(path)] = result
+            return
 
     def classify(self, path):
+        if str(path) in self._checked:
+            return self._checked.pop(str(path))
         result = Classification()
         try:
             import pytesseract

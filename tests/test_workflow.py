@@ -26,6 +26,7 @@ def test_ui_manual_review_produces_two_products_and_photos(photo, tmp_path, monk
     assert [p.sku for p in batch.products] == ["024", "025"]
     assert all((p.folder / "01.jpg").exists() for p in batch.products)
     book = load_workbook(batch.folder / "PLANILHA_DE_PRECIFICACAO.xlsx")
-    assert book.active["A2"].value == "024"
-    assert book.active["A3"].value == "025"
-    assert book.active["F2"].value is None and book.active["F3"].value is None
+    assert book.active["A2"].value == "024 - Peça não identificada"
+    assert book.active["A3"].value == "025 - Peça não identificada"
+    assert book.active.max_column == 5
+    assert book.active["E2"].value is None and book.active["E3"].value is None

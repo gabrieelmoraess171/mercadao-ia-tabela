@@ -17,6 +17,18 @@ def choose_folder() -> str:
         root.destroy()
 
 
+def choose_workbook() -> str:
+    import tkinter as tk
+    from tkinter import filedialog
+    root = tk.Tk()
+    root.withdraw()
+    root.attributes("-topmost", True)
+    try:
+        return filedialog.askopenfilename(parent=root, title="Selecione a planilha existente", filetypes=[("Planilha Excel", "*.xlsx")])
+    finally:
+        root.destroy()
+
+
 def open_local(path: Path):
     path = path.resolve()
     if not path.exists():

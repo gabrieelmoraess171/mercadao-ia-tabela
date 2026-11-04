@@ -46,11 +46,11 @@ def test_name_correction_invalidates_old_price_references(photo, tmp_path, monke
     next(b for b in app.button if b.label == "Salvar nomes e valores finais no Excel").click().run()
     assert not app.exception
     updated = app.session_state["batch"].products[0]
-    assert updated.identity.name == "Retrovisor"
+    assert updated.identity.name == "RETROVISOR"
     assert updated.identity.oem is None
     assert price_range(updated.references) == (None, None, None)
     sheet = load_workbook(batch.folder / "PLANILHA_DE_PRECIFICACAO.xlsx").active
-    assert sheet["B2"].value == "Retrovisor" and sheet["C2"].value is None and sheet["F2"].value == 500
+    assert sheet["A2"].value == "024 - RETROVISOR" and sheet["B2"].value is None and sheet["E2"].value == 500
 
 
 def test_manual_reference_editor_updates_real_excel(photo, tmp_path, monkeypatch):

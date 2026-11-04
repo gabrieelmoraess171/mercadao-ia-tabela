@@ -15,10 +15,10 @@ def test_app_starts_and_local_folder_workflow(photo, tmp_path, monkeypatch):
     next(b for b in app.button if b.label == "Carregar fotografias da pasta").click().run()
     assert not app.exception
     assert [p.name for p in app.session_state["paths"]] == ["foto2.png", "foto10.png"]
-    # Sem credenciais, imagens ficam isoladas para revisão, com Excel real salvo.
+    # A análise automática sem chave deve parar, sem produzir um lote vazio.
     app.text_input(key="destination").set_value(str(tmp_path / "resultados"))
     next(b for b in app.button if b.label == "INICIAR PROCESSAMENTO").click().run()
     assert not app.exception
-    batch = app.session_state["batch"]
-    assert (batch.folder / "PLANILHA_DE_PRECIFICACAO.xlsx").exists()
-    assert len(batch.products) == 2 and all(p.sku is None for p in batch.products)
+    assert "batch" not in app.session_state
+    assert any("chave Gemini" in error.value for error in app.error)
+    assert not (tmp_path / "resultados").exists()

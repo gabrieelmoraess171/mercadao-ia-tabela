@@ -9,17 +9,19 @@ from dotenv import load_dotenv
 
 from services.excel_export import export_excel, price_range
 from services.file_manager import list_images, load_batch, natural_key, save_batch, store_upload
-from services.gemini_service import DEFAULT_MODEL, GeminiService
+from services.gemini_service import AIError, AIUnavailableError, DEFAULT_MODEL, GeminiService, normalize_model
 from services.image_processor import analysis_bytes
-from services.local_ui import choose_folder, open_local
-from services.models import Classification, Identity, PhotoKind, Reference
+from services.local_ui import choose_folder, choose_workbook, open_local
+from services.models import Batch, Classification, Identity, PhotoKind, Reference
 from services.pipeline import Options, prepare_batch, process_batch, search_prices
 from services.price_search import MercadoLivreProvider, item_id
 from services.sku_detector import SkuDetector
 from services.mercadolivre_auth import AuthorizationError
 from services.mercadolivre_auth_ui import access_token, connection_ui
+from services.naming import format_identity_name, manual_identity, standardize_identity
 
 load_dotenv()
+APP_VERSION = "1.1.0"
 st.set_page_config(page_title="Precificador de peças — IA", page_icon="⚙️", layout="wide")
 
 
@@ -55,9 +57,18 @@ def open_button(label, path, key):
             st.info(f"Abra manualmente: {path}")
 
 
+def native_workbook():
+    try:
+        selected = choose_workbook()
+        if selected:
+            st.session_state["workbook_source"] = selected
+    except Exception:
+        st.session_state["dialog_notice"] = "Digite o caminho completo da planilha XLSX no campo Planilha existente."
+
+
 def main():
     st.title("PRECIFICADOR DE PEÇAS — IA")
-    st.caption("Suas fotos organizadas por SKU. Imagens prontas e planilha salva no seu computador.")
+    st.caption(f"Versão {APP_VERSION} · Suas fotos organizadas por SKU. Imagens prontas e planilha salva no seu computador.")
     with st.expander("Configurações", expanded=True):
         left, right = st.columns(2)
         with left:
@@ -66,11 +77,16 @@ def main():
             st.button("Escolher pasta de destino", on_click=native_folder, args=("destination",))
             do_search = st.checkbox("Pesquisar preços", value=True)
         with right:
-            model = st.text_input("Modelo Gemini", value=os.getenv("GEMINI_MODEL", DEFAULT_MODEL))
+            model = st.text_input("Modelo Gemini", value=normalize_model(os.getenv("GEMINI_MODEL", DEFAULT_MODEL)))
             originals = st.checkbox("Salvar imagens originais", value=True)
             grounding = st.checkbox("Usar Google Search para descobrir anúncios", value=False,
                 help="Pode gerar cobrança adicional no Gemini. Links só entram no cálculo após verificação de preço e compatibilidade.")
             review_names = st.checkbox("Conferir nomes antes da pesquisa", value=True)
+        st.caption("Padrão de nomes: PORTA L.D RENAULT DUSTER 14-20 · dianteira/traseira: D.D, D.E, T.D e T.E. Marca e ano só entram quando confirmados.")
+        st.text_input("Planilha existente (opcional)", key="workbook_source",
+            help="Selecione PECAS AVULSAS 34.xlsx para continuar seu estoque. O programa trabalha em uma cópia e aproveita os nomes dos SKUs já cadastrados.")
+        st.button("Escolher planilha existente", on_click=native_workbook)
+        st.caption("Excel: PECAS AVULSAS · MENOR VALOR · MAIOR VALOR · VALOR MEDIO · VALOR FINAL. O SKU fica junto do nome, como na sua planilha.")
         with st.expander("Ajustes de processamento"):
             quality = st.slider("Qualidade JPG", 80, 100, 92)
             limit = st.number_input("Máximo de chamadas Gemini por operação", 1, 10000, 1000)
@@ -177,24 +193,52 @@ def main():
         counters.caption(f"Imagens: {batch.processed}/{batch.total} · SKUs: {len({p.sku for p in batch.products if p.sku})} · "
                          f"Peças identificadas: {sum(p.identity.name != 'Peça não identificada' for p in batch.products)} · Pesquisas: {batch.searches}")
 
-    if paths and st.button("INICIAR PROCESSAMENTO", type="primary", disabled=not valid_order):
-        ai = get_ai()
+    def execute_processing(input_paths, destination, classifications=None, preserve_photos=None, merge_photos=None, previous_template=None):
+        ai, active_batch = None, None
+        st.session_state.pop("processing_error", None)
         try:
-            batch = prepare_batch(ordered_paths, Path(st.session_state.destination), SkuDetector(ai),
-                overrides=overrides, merge_labels=merge_labels, preserve=preserve, progress=update_progress)
-            st.session_state["batch"] = batch
-            process_batch(batch, ai, options=Options(originals, quality), preserve=preserve, progress=update_progress)
+            automatic = [path for path in input_paths if str(path) not in (classifications or {})]
+            if automatic and not api_key.strip():
+                raise AIUnavailableError("Preencha a chave Gemini para identificar as fotos automaticamente. Sem chave, informe TIPO e SKU de todas as fotos na sequência antes de processar.")
+            ai = get_ai()
+            if automatic:
+                progress.progress(0, text="Validando a análise Gemini com a primeira foto…")
+            active_batch = prepare_batch(input_paths, destination, SkuDetector(ai),
+                overrides=classifications, merge_labels=merge_photos, preserve=preserve_photos, progress=update_progress,
+                excel_layout="company", workbook_template=st.session_state.workbook_source.strip() or previous_template)
+            st.session_state["batch"] = active_batch
+            process_batch(active_batch, ai, options=Options(originals, quality), preserve=preserve_photos, progress=update_progress)
             if do_search and not review_names:
-                run_search(batch, ai)
-            progress.progress(1.0, text="Lote processado. Confira as pendências abaixo.")
+                run_search(active_batch, ai)
+            identified = sum(p.identity.name != "Peça não identificada" for p in active_batch.products)
+            progress.progress(1.0, text=f"Análise terminada: {identified} peças identificadas. Confira as pendências abaixo.")
+            if not identified:
+                active_batch.issues.append("Nenhuma peça foi identificada. Confira as classificações e os erros da análise antes de continuar.")
+        except AIError as exc:
+            active_batch = active_batch or getattr(exc, "batch", None)
+            st.session_state["processing_error"] = str(exc)
+            if active_batch:
+                active_batch.error = str(exc)
+                st.session_state["batch"] = active_batch
+            progress.progress(0, text="Análise interrompida. Veja o erro abaixo.")
+        except ValueError as exc:
+            st.session_state["processing_error"] = str(exc)
         except Exception:
-            st.error("Processamento interrompido. Os resultados já gravados foram preservados. Confira espaço, permissão da pasta e se o Excel está fechado.")
+            st.session_state["processing_error"] = "Processamento interrompido. Os resultados já gravados foram preservados. Confira espaço, permissão da pasta e se o Excel está fechado."
         finally:
+            if active_batch:
+                if ai:
+                    active_batch.usage = dict(ai.usage)
+                    active_batch.ai_model = getattr(ai, "model", model)
+                    active_batch.issues.extend(n for n in getattr(ai, "notices", []) if n not in active_batch.issues)
+                save_batch(active_batch)
             if ai:
-                if "batch" in st.session_state:
-                    st.session_state.batch.usage = dict(ai.usage)
-                    save_batch(st.session_state.batch)
                 ai.close()
+
+    if paths and st.button("INICIAR PROCESSAMENTO", type="primary", disabled=not valid_order):
+        execute_processing(ordered_paths, Path(st.session_state.destination), overrides, preserve, merge_labels)
+    if st.session_state.get("processing_error"):
+        st.error(st.session_state.processing_error)
 
     with st.expander("Abrir lote salvo"):
         resume_path = st.text_input("Pasta do lote (contendo lote.json)")
@@ -207,22 +251,40 @@ def main():
     batch = st.session_state.get("batch")
     if not batch:
         return
+    if not isinstance(batch, Batch):
+        batch = Batch.model_validate(batch.model_dump(mode="json"))
+        st.session_state["batch"] = batch
     st.subheader("3. Resultados e revisão")
     st.caption(str(batch.folder))
+    if batch.ai_model:
+        st.caption(f"Modelo usado na análise: {batch.ai_model}")
+    if batch.error:
+        st.error(batch.error)
+    for issue in dict.fromkeys(batch.issues):
+        st.warning(issue)
     if not batch.products:
         st.info("O lote ainda não tem grupos identificados.")
         return
+    if not any(p.identity.name != "Peça não identificada" for p in batch.products):
+        st.error("Este lote ainda não tem peças identificadas. Use Reanalisar lote com a IA para refazer a leitura e o agrupamento com a conexão corrigida.")
+        errors = [photo.error for p in batch.products for photo in p.photos if photo.error]
+        if errors:
+            st.error("Causa registrada no lote: " + errors[0])
     data = []
     for product in batch.products:
         low, high, average = price_range(product.references)
-        data.append({"SKU": product.sku or "REVISAR", "PEÇA": product.identity.name,
-            "MENOR": float(low) if low is not None else None, "MAIOR": float(high) if high is not None else None,
-            "MÉDIA": float(average) if average is not None else None,
-            "FINAL": float(product.final) if product.final is not None else None,
-            "SITUAÇÃO": "Referências insuficientes" if low is None else product.status})
+        data.append({"SKU": product.sku or "REVISAR", "PEÇA": format_identity_name(product.identity),
+            "MENOR": float(low) if low is not None else float("nan"), "MAIOR": float(high) if high is not None else float("nan"),
+            "MÉDIA": float(average) if average is not None else float("nan"),
+            "FINAL": float(product.final) if product.final is not None else float("nan"),
+            "SITUAÇÃO": product.status,
+            "PESQUISA": "Pesquisa pendente" if low is None else "Referências disponíveis"})
     final_rows = st.data_editor(data, hide_index=True, width="stretch", key=f"final-{batch.folder.name}",
-        disabled=["SKU", "MENOR", "MAIOR", "MÉDIA", "SITUAÇÃO"],
+        disabled=["SKU", "MENOR", "MAIOR", "MÉDIA", "SITUAÇÃO", "PESQUISA"],
         column_config={"FINAL": st.column_config.NumberColumn(min_value=0, format="R$ %.2f"),
+                       "MENOR": st.column_config.NumberColumn(format="R$ %.2f"),
+                       "MAIOR": st.column_config.NumberColumn(format="R$ %.2f"),
+                       "MÉDIA": st.column_config.NumberColumn(format="R$ %.2f"),
                        "PEÇA": st.column_config.TextColumn(required=True)})
     st.caption("Salve para confirmar os nomes antes da pesquisa. Ao alterar um nome, as referências anteriores "
                "precisam de nova conferência de compatibilidade e os atributos da identificação anterior são descartados.")
@@ -233,21 +295,38 @@ def main():
             if not all(names):
                 raise ValueError("Informe um nome para todas as peças antes de salvar.")
             for product, name, value in zip(batch.products, names, values):
-                if product.identity.name != name:
-                    product.identity = Identity(name=name, evidence=["Nome corrigido manualmente. Atributos da identificação anterior precisam de nova conferência."])
+                corrected = manual_identity(name)
+                if format_identity_name(product.identity) != corrected.name:
+                    product.identity = corrected
                     for reference in product.references:
                         reference.compatible = False
                         reference.status = "Revisão necessária: nome da peça alterado"
                     if product.references:
                         product.issues.append("Nome alterado: confira novamente a compatibilidade das referências anteriores.")
+                        product.references_edited = True
+                else:
+                    standardize_identity(product.identity)
                 product.identity_reviewed = name != "Peça não identificada"
+                if product.final != value:
+                    product.final_override = True
                 product.final = value
+            batch.excel_layout = "company"
             save_batch(batch)
             export_excel(batch)
             st.success("Excel atualizado na pasta do lote.")
             st.rerun()
         except Exception:
             st.error("Não foi possível salvar. Confira valores e feche a planilha no Excel antes de tentar novamente.")
+    if st.button("Padronizar nomes e Excel deste lote"):
+        try:
+            for product in batch.products:
+                standardize_identity(product.identity)
+            batch.excel_layout = "company"
+            export_excel(batch)
+            save_batch(batch)
+            st.rerun()
+        except Exception:
+            st.error("Feche a planilha no Excel e confira a permissão da pasta antes de tentar novamente.")
     if do_search and st.button("Pesquisar preços dos nomes salvos", type="primary"):
         ai = get_ai()
         try:
@@ -268,12 +347,22 @@ def main():
             "ETIQUETA REPETIDA DA MESMA PEÇA": photo.merge_with_previous} for i, photo in enumerate(photos, 1)]
         st.session_state["sequence_version"] = st.session_state.get("sequence_version", 0) + 1
         st.rerun()
+    if st.button("Reanalisar lote com a IA", type="primary"):
+        photos = [photo for p in batch.products for photo in p.photos]
+        manual = {str(photo.path): photo.classification for photo in photos
+                  if photo.classification.evidence == "Classificação conferida manualmente."}
+        keep = {str(photo.path) for photo in photos if photo.preserve_original}
+        merge = {str(photo.path) for photo in photos if photo.merge_with_previous}
+        execute_processing([photo.path for photo in photos], batch.folder.parent, manual, keep, merge, batch.workbook_template)
+        st.rerun()
     if st.button("Retomar identificação e fotos pendentes do lote"):
         ai = get_ai()
         try:
             process_batch(batch, ai, options=Options(originals, quality), progress=update_progress)
+        except AIError as exc:
+            st.session_state["processing_error"] = str(exc)
         except Exception:
-            st.error("Não foi possível retomar. Confira os arquivos originais, a permissão da pasta e se o Excel está fechado.")
+            st.session_state["processing_error"] = "Não foi possível retomar. Confira os arquivos originais, a permissão da pasta e se o Excel está fechado."
         finally:
             if ai:
                 ai.close()
@@ -334,6 +423,7 @@ def main():
                     verified=bool(row["VERIFICADO"]), compatible=bool(row["COMPATÍVEL"]),
                     status="Compatível (conferência manual)" if accepted else "Revisão necessária", reason=row["OBSERVAÇÃO"] or ""))
             selected.references = new_refs
+            selected.references_edited = True
             save_batch(batch)
             export_excel(batch)
             st.success("Referências salvas.")

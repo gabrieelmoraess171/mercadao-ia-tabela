@@ -7,6 +7,7 @@ from openpyxl.cell.cell import ILLEGAL_CHARACTERS_RE
 
 from .file_manager import atomic_write
 from .models import Batch, Reference
+from .naming import format_identity_name
 
 
 def price_range(references: list[Reference]):
@@ -30,6 +31,9 @@ def safe_cell(value):
 
 
 def export_excel(batch: Batch):
+    if batch.excel_layout == "company":
+        from .company_workbook import export_company_workbook
+        return export_company_workbook(batch)
     book = Workbook()
     sheet = book.active
     sheet.title = "PRECIFICAÇÃO"
@@ -38,7 +42,7 @@ def export_excel(batch: Batch):
     refs.append(["SKU", "NOME DO ANÚNCIO", "PREÇO", "LINK", "DATA DA CONSULTA", "STATUS DE COMPATIBILIDADE", "MOTIVO", "ORIGEM"])
     for product in batch.products:
         low, high, mean = price_range(product.references)
-        sheet.append([safe_cell(product.sku or "REVISAR"), safe_cell(product.identity.name),
+        sheet.append([safe_cell(product.sku or "REVISAR"), safe_cell(format_identity_name(product.identity)),
                       *[float(v) if v is not None else None for v in (low, high, mean, product.final)]])
         for reference in product.references:
             refs.append([safe_cell(product.sku or "REVISAR"), safe_cell(reference.title),

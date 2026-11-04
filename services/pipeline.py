@@ -4,8 +4,9 @@ from pathlib import Path
 from .excel_export import export_excel, price_range
 from .file_manager import atomic_write, copy_original, create_batch, safe_name, save_batch
 from .image_processor import ImageProcessor, open_image
-from .gemini_service import AIError
+from .gemini_service import AIError, AIUnavailableError
 from .models import Batch, Classification, Photo, PhotoKind, Product
+from .naming import standardize_identity
 
 
 @dataclass
@@ -19,8 +20,19 @@ def checkpoint(batch: Batch):
     export_excel(batch)
 
 
-def prepare_batch(paths: list[Path], destination: Path, detector, *, overrides=None, merge_labels=None, preserve=None, progress=None) -> Batch:
+def prepare_batch(paths: list[Path], destination: Path, detector, *, overrides=None, merge_labels=None, preserve=None, progress=None,
+                  excel_layout="standard", workbook_template=None) -> Batch:
+    from .company_workbook import attach_source, validate_source
+    if workbook_template:
+        workbook_template = Path(workbook_template).expanduser().resolve()
+        validate_source(workbook_template)
+    automatic = [path for path in paths if str(path) not in (overrides or {})]
+    validate = getattr(detector, "validate_connection", None)
+    if automatic and callable(validate):
+        validate(automatic)
     batch = create_batch(destination)
+    batch.excel_layout = excel_layout
+    attach_source(batch, workbook_template)
     batch.total = len(paths)
     current = None
     seen = set()
@@ -40,9 +52,18 @@ def prepare_batch(paths: list[Path], destination: Path, detector, *, overrides=N
                     classification.sku = None
                 if classification.sku and len(classification.sku) > 40:
                     classification.sku = None
+            elif classification.kind == PhotoKind.PRODUCT and classification.confidence >= 0.6:
+                if classification.confidence < 0.8:
+                    photo.review_reason = f"Foto {path.name}: tipo Produto com confiança moderada ({classification.confidence:.0%}); confira a foto e a identificação."
             elif classification.confidence < 0.8:
                 # Sem confiança no tipo, não é possível excluir uma nova etiqueta.
                 photo.classification = Classification(evidence="Tipo de foto incerto; confira a sequência para não misturar peças.")
+        except AIUnavailableError as exc:
+            batch.error = str(exc)
+            batch.issues.append(str(exc))
+            checkpoint(batch)
+            exc.batch = batch
+            raise
         except Exception as exc:
             # Arquivo ilegível pode ser etiqueta; fecha grupo para evitar misturar peças.
             photo.error = str(exc) if isinstance(exc, AIError) else "Não foi possível ler ou classificar esta imagem. Confira o arquivo, o tamanho e a API."
@@ -65,6 +86,8 @@ def prepare_batch(paths: list[Path], destination: Path, detector, *, overrides=N
                 seen.add(sku)
             batch.products.append(current)
         current.photos.append(photo)
+        if photo.review_reason:
+            current.issues.append(photo.review_reason)
         if photo.error:
             current.issues.append(f"{path.name}: {photo.error}")
         batch.processed = index + 1
@@ -74,6 +97,9 @@ def prepare_batch(paths: list[Path], destination: Path, detector, *, overrides=N
 
 
 def process_batch(batch: Batch, ai=None, processor=None, options=None, *, preserve=None, progress=None):
+    from .company_workbook import reference_products
+    from .naming import manual_identity
+    known = reference_products(batch.workbook_template)
     options = options or Options()
     processor = processor or ImageProcessor(options.quality)
     for index, product in enumerate(batch.products):
@@ -81,17 +107,30 @@ def process_batch(batch: Batch, ai=None, processor=None, options=None, *, preser
             continue
         products = [photo.path for photo in product.photos
                     if photo.classification.kind == PhotoKind.PRODUCT and not photo.error]
+        if product.sku in known and product.identity.name == "Peça não identificada":
+            product.identity = manual_identity(known[product.sku]["name"])
+            product.identity.evidence = ["Nome importado da planilha fornecida para este SKU; aplicação informada pelo usuário."]
+            product.identity_reviewed = True
+            product.final = known[product.sku]["final"]
         if progress:
             progress("Identificando produto", index, len(batch.products), batch)
         if products and ai and product.identity.name == "Peça não identificada":
             try:
                 product.identity = ai.identify(products)
+            except AIUnavailableError as exc:
+                batch.error = str(exc)
+                product.status = "Interrompido: falha na IA"
+                product.issues.append(str(exc))
+                checkpoint(batch)
+                exc.batch = batch
+                raise
             except Exception as exc:
                 product.issues.append(str(exc) if isinstance(exc, AIError) else "Identificação Gemini indisponível; corrija o nome manualmente ou tente novamente.")
         if product.identity.confidence < 0.8:
             message = "Identificação incerta: confira nome e atributos antes de pesquisar preços."
             if message not in product.issues:
                 product.issues.append(message)
+        standardize_identity(product.identity)
         if product.identity.name != "Peça não identificada":
             title = safe_name(product.identity.name)[:40]
             target = batch.folder / f"SKU-{safe_name(product.sku or 'REVISAR')}-{title}-{product.id}"
@@ -152,8 +191,11 @@ def search_prices(batch: Batch, provider, *, progress=None):
             progress("Pesquisando preços", index, len(batch.products), batch)
         try:
             found = provider.search(product)
+            had_references = bool(product.references)
             # Preserva referências manuais e substitui somente pesquisas anteriores.
             product.references = [r for r in product.references if r.source == "manual"] + found
+            if found or had_references:
+                product.references_edited = True
             batch.searches += 1
             if price_range(product.references)[0] is None:
                 product.issues.append("Referências insuficientes: é preciso ter ao menos dois anúncios usados, verificados e compatíveis.")

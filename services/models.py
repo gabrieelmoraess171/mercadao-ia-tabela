@@ -23,6 +23,7 @@ class Classification(BaseModel):
 
 class Identity(BaseModel):
     name: str = "Peça não identificada"
+    part_type: str | None = None
     manufacturer: str | None = None
     vehicle_brand: str | None = None
     vehicle_model: str | None = None
@@ -67,6 +68,7 @@ class Photo(BaseModel):
     error: str | None = None
     preserve_original: bool = False
     merge_with_previous: bool = False
+    review_reason: str | None = None
 
 
 class Product(BaseModel):
@@ -78,6 +80,9 @@ class Product(BaseModel):
     identity_reviewed: bool = False
     references: list[Reference] = Field(default_factory=list)
     final: Decimal | None = Field(default=None, ge=0)
+    final_override: bool = False
+    references_edited: bool = False
+    excel_row: int | None = None
     status: str = "Aguardando"
     issues: list[str] = Field(default_factory=list)
     outputs: list[str] = Field(default_factory=list)
@@ -92,3 +97,7 @@ class Batch(BaseModel):
     searches: int = 0
     issues: list[str] = Field(default_factory=list)
     usage: dict[str, int] = Field(default_factory=dict)
+    ai_model: str | None = None
+    error: str | None = None
+    excel_layout: str = "standard"
+    workbook_template: Path | None = None

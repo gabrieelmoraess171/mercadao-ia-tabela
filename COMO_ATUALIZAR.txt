@@ -1,0 +1,50 @@
+IDENTIFICAÇÃO, NOMES E PLANILHA — VERSÃO 1.1.0
+
+1. Feche a janela preta do programa para encerrar a versão antiga.
+2. Extraia o ZIP da correção NA MESMA PASTA onde está iniciar.bat.
+3. Aceite substituir os arquivos existentes. Mescle a pasta services;
+   não apague os outros arquivos dessa pasta.
+4. Abra iniciar.bat novamente.
+5. Confirme “Versão 1.1.0” no topo e o modelo gemini-3.5-flash-lite.
+6. Informe a chave Gemini no campo protegido se necessário.
+
+O pacote substitui app.py e os módulos Python necessários dentro de services.
+Não altera sua .env, o ambiente .venv, suas fotos nem as pastas de resultados.
+Não é necessário instalar Python ou as bibliotecas novamente.
+
+PARA RECUPERAR UM LOTE QUE FICOU NÃO IDENTIFICADO
+
+Abra “Abrir lote salvo” e informe a pasta PRECIFICACAO_... que contém lote.json.
+Clique em “Abrir resultados salvos” e depois em “Reanalisar lote com a IA”.
+O programa lê novamente as fotos, reconhece as etiquetas, agrupa por SKU e
+identifica as peças em uma NOVA pasta de lote. O lote antigo é preservado.
+
+Se as fotos de origem foram removidas, o programa procura as cópias na pasta
+ORIGINAIS de cada grupo. Se não houver originais disponíveis, selecione as
+fotografias novamente pela pasta de entrada.
+
+O modelo antigo gemini-flash-latest retornou indisponibilidade no teste real.
+A versão nova valida a análise antes de criar o lote e exibe a falha da API
+diretamente. Uma indisponibilidade não vira mais uma lista de peças vazias.
+
+Uma peça pode receber um nome genérico correto sem que fabricante, veículo,
+ano ou código OEM sejam confirmados. Essas informações não serão inventadas.
+
+PADRÃO DE NOMES E EXCEL
+
+Os nomes ficam em maiúsculas, como PORTA L.D RENAULT DUSTER 14-20.
+Lado direito: L.D. Esquerdo: L.E. Quando há posição confirmada:
+D.D / D.E (dianteiras) e T.D / T.E (traseiras). Marcas: VW e GM.
+
+O Excel tem cinco colunas, como PECAS AVULSAS 34.xlsx:
+PECAS AVULSAS | MENOR VALOR | MAIOR VALOR | VALOR MEDIO | VALOR FINAL.
+O SKU e o nome ficam juntos na primeira coluna.
+
+Para continuar seu estoque, selecione PECAS AVULSAS 34.xlsx no campo
+"Planilha existente (opcional)" antes de processar. O original não é alterado:
+o programa usa uma cópia na pasta do lote, mantém linhas e valores existentes
+e aproveita os nomes dos SKUs cadastrados. A planilha de estoque não é enviada
+ao GitHub nem está dentro deste pacote.
+
+Para somente padronizar um lote antigo, abra o lote salvo e clique em
+"Padronizar nomes e Excel deste lote". Esse botão não chama a API.

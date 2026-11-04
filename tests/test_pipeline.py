@@ -184,13 +184,16 @@ def test_resuming_with_saved_originals_after_source_removed(photo, tmp_path):
 
 
 def test_scan_api_quota_error_visible_and_does_not_mix_skus(photo, tmp_path):
-    from services.gemini_service import AIError
+    import pytest
+    from services.gemini_service import AIUnavailableError
     class Limited:
         def classify(self, path):
-            raise AIError("Limite ou cota da API Gemini atingido.")
-    batch = prepare_batch([photo("1.png"), photo("2.png")], tmp_path / "out", Limited())
-    assert len(batch.products) == 2 and batch.processed == 2
-    assert all("cota" in p.photos[0].error for p in batch.products)
+            raise AIUnavailableError("Limite ou cota da API Gemini atingido.", 429)
+    with pytest.raises(AIUnavailableError) as error:
+        prepare_batch([photo("1.png"), photo("2.png")], tmp_path / "out", Limited())
+    batch = error.value.batch
+    assert batch.products == [] and batch.processed == 0
+    assert "cota" in load_batch(batch.folder).error
 
 
 def test_500_photo_batch_variable_group_lengths(photo, tmp_path):
