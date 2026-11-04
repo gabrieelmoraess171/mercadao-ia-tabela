@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'sha256-UJa2rGg3TnLSPzuv5jSPy10KcqWm7l0DafCrZuqntVg='; style-src 'sha256-1l63/mE91zlUoYj3C5cYBkXrpsCwT8VuKfqpDtDziqA='; base-uri 'none'; form-action 'none'">
+  <title>Retorno do Mercado Livre — Precificador de Peças</title>
+  <style>
+body{margin:0;background:#f7f8fa;color:#172b34;font:17px/1.6 system-ui,sans-serif}main{max-width:620px;margin:12vh auto;padding:32px;background:white;border:1px solid #dfe7e4;border-radius:16px}h1{font-size:28px;line-height:1.25}input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #aebfba;border-radius:6px;font:inherit}button{margin:18px 0;padding:12px 20px;border:0;border-radius:6px;background:#137568;color:white;font:inherit;cursor:pointer}button:disabled{opacity:.5;cursor:default}small{display:block;color:#50665e}a{color:#137568}@media(max-width:700px){main{margin:20px;padding:24px}}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Volte ao Precificador de Peças</h1>
+    <p id="status" role="status">Esta página recebe o retorno da autorização do Mercado Livre.</p>
+    <label for="retorno">Endereço de retorno protegido</label>
+    <input id="retorno" type="password" readonly autocomplete="off" spellcheck="false">
+    <button id="copiar" type="button" disabled>Copiar retorno para o programa</button>
+    <small>Cole no campo “Endereço completo recebido após autorizar” e clique em “Concluir conexão do Mercado Livre”. A conexão só é confirmada no programa.</small>
+    <p><a href="http://127.0.0.1:8501" rel="noreferrer" target="_blank">Abrir o programa neste computador</a></p>
+    <small>Não informe senha, Client Secret ou tokens nesta página. Ela não recebe fotografias.</small>
+  </main>
+  <script>
+(() => {
+  const status = document.getElementById("status");
+  const field = document.getElementById("retorno");
+  const button = document.getElementById("copiar");
+  const original = window.location.href;
+  const url = new URL(original);
+  const states = url.searchParams.getAll("state");
+  const codes = url.searchParams.getAll("code");
+  const denied = url.searchParams.has("error");
+  if (url.protocol !== "https:" || url.hash || states.length !== 1 || !states[0] ||
+      (!denied && (codes.length !== 1 || !codes[0]))) {
+    status.textContent = "Nenhum retorno válido foi recebido. Inicie a autorização pelo programa.";
+    return;
+  }
+  field.value = original;
+  button.disabled = false;
+  status.textContent = denied
+    ? "O Mercado Livre recusou ou cancelou a autorização. Copie o retorno para informar ao programa."
+    : "O endereço de retorno está pronto para copiar. Conclua a conexão no programa.";
+  // O código permanece só na memória da aba e no campo, sem armazenamento local.
+  window.history.replaceState(null, "", url.pathname);
+  button.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(original);
+      status.textContent = "Retorno copiado. Volte ao programa, cole no campo protegido e conclua a conexão.";
+    } catch (_) {
+      field.focus();
+      field.select();
+      status.textContent = "Copie o campo selecionado com Ctrl+C e cole no programa.";
+    }
+  });
+})();
+  </script>
+</body>
+</html>

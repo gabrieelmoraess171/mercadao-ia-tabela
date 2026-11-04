@@ -1,0 +1,28 @@
+PRECIFICADOR DE PEÇAS — IA
+
+1. Extraia TODO o ZIP em uma pasta do seu computador Windows.
+2. Instale Python 3.12 de 64 bits, de python.org, com pip e o launcher py.
+3. Clique duas vezes em iniciar.bat e aguarde a instalação inicial.
+4. Mantenha a janela de comandos aberta enquanto usar o programa.
+5. No programa, configure sua chave Gemini no campo protegido.
+6. Selecione a pasta de fotografias, confira a ordem e escolha o destino.
+
+MERCADO LIVRE (OPCIONAL)
+
+O programa tem uma opção “Conectar conta do Mercado Livre”.
+O retorno HTTP local foi recusado pelo cadastro. É necessário um retorno HTTPS.
+A página oauth-retorno/retorno.html está pronta para revisão, mas não publicada.
+Ela pode ser hospedada separadamente em uma página estática gratuita, sem enviar
+o programa ou suas fotos. Essa publicação ainda depende de autorização.
+Leia oauth-retorno/README.md. A URL real só estará disponível após a publicação.
+
+Quando a URL HTTPS existir e for aceita no cadastro, informe exatamente a mesma
+no programa, junto com App ID e Client Secret nos campos protegidos. Autorize no
+site oficial e use o botão de copiar da página de retorno para concluir no programa.
+Os demais recursos e a conferência manual continuam disponíveis sem essa conexão.
+
+Não envie chaves ou Client Secret pelo chat. Não há garantia de que a conta
+terá permissão para buscar anúncios de concorrentes, mesmo após conectar.
+
+O programa depende do Python; não é um executável independente.
+Leia README.md para os detalhes e VALIDACAO.md para testes e limitações.
