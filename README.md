@@ -4,6 +4,8 @@ Aplicativo **local** em Python/Streamlit para ordenar fotografias, reconhecer et
 
 **Versão 1.1.1 — pacotes para Mac e Windows, seletores corrigidos no macOS, nomes padronizados e Excel no padrão da empresa.** Para atualizar uma instalação existente sem reinstalar Python ou dependências, consulte [COMO_ATUALIZAR.txt](COMO_ATUALIZAR.txt).
 
+**Baixar os pacotes prontos:** [Mac 1.1.1](https://github.com/gabrieelmoraess171/mercadao-ia-tabela/raw/refs/heads/main/downloads/precificador-mac-1.1.1.zip) · [Windows 1.1.1](https://github.com/gabrieelmoraess171/mercadao-ia-tabela/raw/refs/heads/main/downloads/precificador-windows-1.1.1.zip). Ambos requerem Python 3.12. As instruções estão dentro de cada ZIP.
+
 ## Começar no Mac
 
 1. Instale **Python 3.12 para macOS** de [python.org](https://www.python.org/downloads/macos/). O instalador universal2 atende Apple Silicon e Intel.
