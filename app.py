@@ -21,7 +21,7 @@ from services.mercadolivre_auth_ui import access_token, connection_ui
 from services.naming import format_identity_name, manual_identity, standardize_identity
 
 load_dotenv()
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.1.1"
 st.set_page_config(page_title="Precificador de peças — IA", page_icon="⚙️", layout="wide")
 
 

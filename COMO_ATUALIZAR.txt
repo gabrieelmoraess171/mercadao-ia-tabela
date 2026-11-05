@@ -1,11 +1,16 @@
-IDENTIFICAÇÃO, NOMES E PLANILHA — VERSÃO 1.1.0
+IDENTIFICAÇÃO, NOMES E PLANILHA — VERSÃO 1.1.1
+
+MAC: siga LEIA_ME_MAC.txt. A versão 1.1.1 corrige o encerramento causado
+pelos seletores Tkinter no macOS e inclui o iniciador iniciar.command.
+
+WINDOWS:
 
 1. Feche a janela preta do programa para encerrar a versão antiga.
 2. Extraia o ZIP da correção NA MESMA PASTA onde está iniciar.bat.
 3. Aceite substituir os arquivos existentes. Mescle a pasta services;
    não apague os outros arquivos dessa pasta.
 4. Abra iniciar.bat novamente.
-5. Confirme “Versão 1.1.0” no topo e o modelo gemini-3.5-flash-lite.
+5. Confirme “Versão 1.1.1” no topo e o modelo gemini-3.5-flash-lite.
 6. Informe a chave Gemini no campo protegido se necessário.
 
 O pacote substitui app.py e os módulos Python necessários dentro de services.

@@ -2,7 +2,18 @@
 
 Aplicativo **local** em Python/Streamlit para ordenar fotografias, reconhecer etiquetas SKU, identificar peças com Gemini, remover fundo com ONNX CPU e criar uma planilha Excel. Não usa banco de dados, contas de usuários, nuvem de armazenamento ou sincronização de fotos.
 
-**Versão 1.1.0 — identificação corrigida, nomes padronizados e Excel no padrão da empresa.** Para atualizar uma instalação existente sem reinstalar Python ou dependências, consulte [COMO_ATUALIZAR.txt](COMO_ATUALIZAR.txt).
+**Versão 1.1.1 — pacotes para Mac e Windows, seletores corrigidos no macOS, nomes padronizados e Excel no padrão da empresa.** Para atualizar uma instalação existente sem reinstalar Python ou dependências, consulte [COMO_ATUALIZAR.txt](COMO_ATUALIZAR.txt).
+
+## Começar no Mac
+
+1. Instale **Python 3.12 para macOS** de [python.org](https://www.python.org/downloads/macos/). O instalador universal2 atende Apple Silicon e Intel.
+2. Extraia o pacote **Mac** e abra **`iniciar.command`**. Se o Finder não executar, abra o Terminal nessa pasta e rode `bash iniciar.command`.
+3. Na primeira execução, o iniciador cria `.venv`, instala dependências e prepara o modelo. Nas próximas execuções, reutiliza a instalação.
+4. Mantenha o Terminal aberto e acesse **http://127.0.0.1:8501** no navegador. Use **Control+C** para encerrar.
+
+No Mac, os seletores de pasta e planilha usam `osascript` em um processo separado. Não abrem Tkinter na thread do Streamlit, evitando o erro `NSWindow should only be instantiated on the main thread`. Se um diálogo não estiver disponível, digite o caminho no campo. O aviso opcional sobre Watchdog não exige instalar Xcode para usar o programa.
+
+Para atualizar o Mac já instalado, substitua `app.py` e `services/local_ui.py`, acrescente `iniciar.command` na pasta atual e execute `bash iniciar.command`. Preserve `.venv`, `.env`, fotos e resultados. Consulte [LEIA_ME_MAC.txt](LEIA_ME_MAC.txt). O pacote inclui código Python e iniciador; requer Python instalado.
 
 ## Começar no Windows
 
@@ -20,7 +31,7 @@ Opcional: instale Tesseract OCR pelo projeto [UB Mannheim](https://github.com/UB
 
 1. Prefira **Pasta local** para lotes grandes: o programa lê uma imagem por vez. O upload do Streamlit aceita vários arquivos, mas mantém os arquivos enviados em memória; não é recomendado para 500 fotos de 100 MB. O limite de **100 MB é individual** e não do lote.
 2. Carregue as fotos. JPG/JPEG, PNG, HEIC e HEIF são decodificados e têm orientação EXIF corrigida. A lista começa em ordem natural (`foto2` antes de `foto10`). Altere **ORDEM** para corrigir a sequência. Expanda miniaturas para conferir. Pastas são lidas sem recursão para não incluir acidentalmente resultados anteriores.
-3. Escolha o destino. O seletor nativo abre **no computador que executa o Python**. Em um ambiente remoto sem desktop, digite o caminho local desse ambiente. Para salvar no Windows do usuário, execute o aplicativo nesse Windows.
+3. Escolha o destino. O seletor nativo abre **no computador que executa o Python**. Em um ambiente remoto sem desktop, digite o caminho local desse ambiente. Para salvar no computador do usuário, execute o aplicativo nesse computador.
 4. Clique em **INICIAR PROCESSAMENTO**. A etiqueta inicia um grupo e não existe quantidade fixa de fotos por peça. OCR exige o marcador `SKU`; inscrições OEM sozinhas não iniciam grupos. Gemini classifica fotos de produto, etiqueta, medida e peso. Só produtos passam pelo removedor de fundo.
 5. Confira os resultados. Por padrão a pesquisa aguarda sua revisão dos nomes; salve alterações e clique em **Pesquisar preços dos nomes salvos**. Desmarque “Conferir nomes antes da pesquisa” para executar as etapas em sequência. Pesquisar preços também pode ser desativado.
 6. Confira referências, informe os valores finais desejados e salve no Excel. A coluna **VALOR FINAL começa vazia** para peças novas, mesmo quando há preços de referência. Valores já existentes na planilha selecionada são preservados.

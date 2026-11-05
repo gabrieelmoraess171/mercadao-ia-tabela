@@ -1,5 +1,17 @@
 # Validação da versão 1.1.0 — 04/11/2026
 
+## Atualização 1.1.1 — Mac e Windows — 05/11/2026
+
+Foram preparados pacotes separados: macOS com `iniciar.command` e Windows com `iniciar.bat`. O código de identificação, nomes e planilha é compartilhado. O iniciador Mac reutiliza `.venv`, verifica dependências/modelo e abre o Streamlit apenas em loopback.
+
+O encerramento nativo informado pelo usuário (`NSWindow should only be instantiated on the main thread`) vinha da criação de janelas Tkinter na thread do Streamlit. No macOS, os dois seletores agora usam `/usr/bin/osascript` em outro processo. Cancelar retorna sem alterar o caminho; falhas permitem informar o caminho manualmente. No Windows, o caminho Tkinter foi mantido.
+
+**31 testes passaram em 7,65 segundos** nesta revisão, cobrindo seletores, inicialização pela interface, revisão de nomes, planilha existente e processamento local. Os testes de Mac proíbem importar Tkinter, verificam execução sem shell, caminhos com espaços, cancelamento e falha do seletor. O iniciador foi executado com comandos substitutos, confirmando reaproveitamento da instalação e início na pasta correta. Sintaxe Bash e compilação Python também passaram.
+
+Esses testes rodaram em Linux. O AppleScript e a abertura pelo Finder ainda precisam de conferência em macOS real; o iniciador Windows também não foi executado nativamente nesta revisão. A verificação de 149 testes abaixo refere-se à versão anterior e não foi repetida com chamadas pagas nesta atualização.
+
+## Validação anterior
+
 Ambiente: Linux, Python 3.12.14, ONNX Runtime CPU e Tesseract 5.5.0. Dependências diretas fixadas em `requirements.txt`.
 
 **Resultado final: 149 testes aprovados, zero falhas e zero pulados, em 83,03 segundos**, incluindo Gemini e ONNX reais. `pip check`, compilação dos módulos e `git diff --check` também passaram.
