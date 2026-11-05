@@ -1,4 +1,4 @@
-PRECIFICADOR DE PEÇAS — macOS — VERSÃO 1.1.1
+PRECIFICADOR DE PEÇAS — macOS — VERSÃO 1.1.2
 
 PRIMEIRA INSTALAÇÃO
 1. Instale Python 3.12 para macOS em https://www.python.org/downloads/macos/
@@ -15,12 +15,12 @@ PARA ATUALIZAR O MAC JÁ INSTALADO
 1. Encerre o servidor antigo com Control+C, se ainda estiver rodando.
 2. Copie estes arquivos do pacote para a pasta atual do programa, substituindo:
    app.py
-   services/local_ui.py (dentro da pasta services existente)
+   todos os arquivos .py de services (na pasta services existente)
    iniciar.command
 3. Preserve sua pasta .venv, seu .env, suas fotos e os resultados.
 4. No Terminal dessa pasta, execute:
     bash iniciar.command
-   As dependências já instaladas serão reaproveitadas. Confirme Versão 1.1.1.
+   As dependências já instaladas serão reaproveitadas. Confirme Versão 1.1.2.
 
 CORREÇÃO DOS SELETORES
 No macOS, selecionar pasta ou planilha usa o seletor do sistema em um processo

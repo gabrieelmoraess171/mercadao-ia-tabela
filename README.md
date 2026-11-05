@@ -2,9 +2,9 @@
 
 Aplicativo **local** em Python/Streamlit para ordenar fotografias, reconhecer etiquetas SKU, identificar peças com Gemini, remover fundo com ONNX CPU e criar uma planilha Excel. Não usa banco de dados, contas de usuários, nuvem de armazenamento ou sincronização de fotos.
 
-**Versão 1.1.1 — pacotes para Mac e Windows, seletores corrigidos no macOS, nomes padronizados e Excel no padrão da empresa.** Para atualizar uma instalação existente sem reinstalar Python ou dependências, consulte [COMO_ATUALIZAR.txt](COMO_ATUALIZAR.txt).
+**Versão 1.1.2 — diagnóstico da conexão Mercado Livre, pacotes Mac/Windows, nomes padronizados e Excel no padrão da empresa.** Para atualizar uma instalação existente sem reinstalar Python ou dependências, consulte [COMO_ATUALIZAR.txt](COMO_ATUALIZAR.txt).
 
-**Baixar os pacotes prontos:** [Mac 1.1.1](https://github.com/gabrieelmoraess171/mercadao-ia-tabela/raw/refs/heads/main/downloads/precificador-mac-1.1.1.zip) · [Windows 1.1.1](https://github.com/gabrieelmoraess171/mercadao-ia-tabela/raw/refs/heads/main/downloads/precificador-windows-1.1.1.zip). Ambos requerem Python 3.12. As instruções estão dentro de cada ZIP.
+**Baixar os pacotes prontos:** [Mac 1.1.2](https://github.com/gabrieelmoraess171/mercadao-ia-tabela/raw/refs/heads/main/downloads/precificador-mac-1.1.2.zip) · [Windows 1.1.2](https://github.com/gabrieelmoraess171/mercadao-ia-tabela/raw/refs/heads/main/downloads/precificador-windows-1.1.2.zip). Ambos requerem Python 3.12. As instruções estão dentro de cada ZIP.
 
 ## Começar no Mac
 
@@ -15,7 +15,7 @@ Aplicativo **local** em Python/Streamlit para ordenar fotografias, reconhecer et
 
 No Mac, os seletores de pasta e planilha usam `osascript` em um processo separado. Não abrem Tkinter na thread do Streamlit, evitando o erro `NSWindow should only be instantiated on the main thread`. Se um diálogo não estiver disponível, digite o caminho no campo. O aviso opcional sobre Watchdog não exige instalar Xcode para usar o programa.
 
-Para atualizar o Mac já instalado, substitua `app.py` e `services/local_ui.py`, acrescente `iniciar.command` na pasta atual e execute `bash iniciar.command`. Preserve `.venv`, `.env`, fotos e resultados. Consulte [LEIA_ME_MAC.txt](LEIA_ME_MAC.txt). O pacote inclui código Python e iniciador; requer Python instalado.
+Para atualizar o Mac já instalado, substitua `app.py` e os arquivos `.py` de `services`, acrescente `iniciar.command` na pasta atual e execute `bash iniciar.command`. Preserve `.venv`, `.env`, fotos e resultados. Consulte [LEIA_ME_MAC.txt](LEIA_ME_MAC.txt). O pacote inclui código Python e iniciador; requer Python instalado.
 
 ## Começar no Windows
 
@@ -107,6 +107,8 @@ O programa e as fotos permanecem no computador. A página HTTPS recebe o código
 Até existir uma página HTTPS publicada e aceita no cadastro, a conexão real continuará pendente. Uma hospedagem estática gratuita pode disponibilizar só essa página, sem comprar domínio, mas a publicação é uma exceção à preferência original de não usar hospedagem e depende de autorização. Os demais recursos e a conferência manual continuam independentes dessa etapa. A autorização também não garante permissão para pesquisar anúncios de concorrentes.
 
 Tokens de acesso, renovação, código e verificador de PKCE ficam só na memória da sessão, sem gravá-los em `.env`, lotes, Excel ou logs. O endereço colado é removido do campo após a tentativa. Ao fechar a sessão, será necessário conectar novamente. O botão **Desconectar Mercado Livre deste programa** apaga a conexão local; a revogação das permissões da aplicação na sua conta é feita no próprio Mercado Livre.
+
+Se a troca de token for recusada, a versão 1.1.2 informa o status HTTP e um código OAuth conhecido, quando a API o fornece: `invalid_client` indica falha de autenticação da aplicação; `invalid_grant` indica recusa do código/renovação; `forbidden` indica bloqueio de acesso. Esses códigos orientam a investigação sem presumir uma causa única. Mensagens remotas, códigos de autorização, tokens e segredos não são exibidos. Uma tentativa já enviada não pode ser reutilizada: gere um novo link, autorize e cole o retorno na mesma sessão, sem gerar outro link no meio. No portal, adicionar a URI à lista e salvar são passos necessários; a validação verde do campo não comprova que ela foi salva.
 
 A troca e a renovação usam `POST https://api.mercadolibre.com/oauth/token`; a autorização usa `https://auth.mercadolivre.com.br/authorization`. Os endpoints e o fluxo de código/renovação foram consultados nos exemplos dos [SDKs oficiais do Mercado Livre](https://github.com/mercadolibre/python-sdk). Os testes automatizados simulam essas respostas; ainda não houve autorização com uma conta real.
 

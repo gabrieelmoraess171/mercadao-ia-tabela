@@ -16,6 +16,48 @@ class AuthorizationError(RuntimeError):
     """Mensagem controlada, sem respostas remotas ou credenciais."""
 
 
+def token_rejection(response: httpx.Response, grant_type: str) -> AuthorizationError:
+    # Somente códigos conhecidos e textos locais chegam à interface. Nunca exibir
+    # message/error_description remotos: podem conter códigos, tokens ou segredo.
+    descriptions = {
+        "invalid_client": "A aplicação não foi autenticada. Copie novamente o App ID e o Client Secret do MESMO cadastro no portal; depois gere uma nova autorização.",
+        "unauthorized_client": "A aplicação não tem autorização para esse fluxo. Confira Authorization Code e a situação da aplicação no portal.",
+        "invalid_grant": "O código de autorização foi recusado. Ele pode estar vencido, já utilizado ou não corresponder ao retorno/PKCE desta tentativa. Gere uma nova autorização, copie o retorno e conclua uma única vez, sem gerar outro link no meio.",
+        "invalid_request": "A API recusou os dados da solicitação. Confira o retorno cadastrado e o PKCE da aplicação; gere uma nova autorização.",
+        "invalid_scope": "A API recusou as permissões solicitadas. Confira as permissões da aplicação no portal.",
+        "unsupported_grant_type": "A API recusou o fluxo de autenticação. Confira Authorization Code no cadastro da aplicação.",
+        "access_denied": "O Mercado Livre negou o acesso. Confira a conta usada e as permissões/situação da aplicação no portal.",
+        "forbidden": "O Mercado Livre bloqueou o acesso à troca de token. Confira a conta e as permissões/situação da aplicação no portal.",
+        "PA_UNAUTHORIZED_RESULT_FROM_POLICIES": "A troca de token foi bloqueada pelas políticas do Mercado Livre. Confira a situação da aplicação e as permissões da conta no portal.",
+    }
+    data = {}
+    try:
+        if len(response.content) <= 65536:
+            body = response.json()
+            if isinstance(body, dict):
+                data = body
+    except ValueError:
+        pass
+    error = next((value for key in ("error", "code")
+                  if isinstance(value := data.get(key), str) and value in descriptions), None)
+    operation = "renovação do token" if grant_type == "refresh_token" else "troca do código por token"
+    prefix = f"Mercado Livre recusou a {operation} (HTTP {response.status_code}"
+    prefix += f"; {error}). " if error else "). "
+    if error == "invalid_grant" and grant_type == "refresh_token":
+        return AuthorizationError(prefix + "A renovação foi recusada. Conecte a conta novamente para obter uma nova autorização.")
+    if error:
+        return AuthorizationError(prefix + descriptions[error])
+    if response.status_code == 429:
+        return AuthorizationError(prefix + "Limite de autorizações atingido. Aguarde antes de gerar outra autorização.")
+    if response.status_code >= 500:
+        return AuthorizationError(prefix + "O serviço está indisponível. Aguarde e gere uma nova autorização.")
+    if response.status_code == 401:
+        return AuthorizationError(prefix + "A API não autenticou a solicitação. Confira App ID e Client Secret da mesma aplicação.")
+    if response.status_code == 403:
+        return AuthorizationError(prefix + "Acesso negado. Confira as permissões e a situação da aplicação/conta no portal.")
+    return AuthorizationError(prefix + "A API não informou um motivo reconhecido. Confira o cadastro da aplicação e gere uma nova autorização.")
+
+
 def validate_redirect_uri(uri: str) -> str:
     uri = uri.strip()
     try:
@@ -118,10 +160,8 @@ class MercadoLivreOAuth:
     def _tokens(self, payload: dict) -> Tokens:
         try:
             response = self.client.post(TOKEN_ENDPOINT, data=payload)
-            if response.status_code in (400, 401, 403):
-                raise AuthorizationError("Mercado Livre recusou a conexão. Confira App ID, Client Secret, retorno cadastrado e a configuração de PKCE; gere uma nova autorização.")
-            if response.status_code == 429:
-                raise AuthorizationError("Limite de autorizações atingido no Mercado Livre. Aguarde antes de tentar novamente.")
+            if not response.is_success:
+                raise token_rejection(response, payload["grant_type"])
             response.raise_for_status()
             data = response.json()
             access = data.get("access_token")

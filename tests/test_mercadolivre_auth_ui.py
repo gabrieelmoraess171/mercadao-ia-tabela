@@ -90,3 +90,23 @@ def test_invalid_registration_shows_error_without_network(monkeypatch):
     next(b for b in app.button if b.label == "Gerar autorização do Mercado Livre").click().run()
     assert not app.exception
     assert any("App ID" in error.value for error in app.error)
+
+
+def test_failed_token_exchange_shows_reason_and_removes_used_link(monkeypatch):
+    import services.mercadolivre_auth_ui as ui
+    def factory(*args, **kwargs):
+        return MercadoLivreOAuth(*args, **kwargs, client=httpx.Client(transport=httpx.MockTransport(
+            lambda r: httpx.Response(400, json={"error": "invalid_grant", "message": "test-secret test-code"}))))
+    monkeypatch.setattr(ui, "MercadoLivreOAuth", factory)
+    app = AppTest.from_file(str(Path(__file__).resolve().parents[1] / "app.py"), default_timeout=30).run()
+    configure(app)
+    attempt = app.session_state["meli_attempt"]
+    callback = REDIRECT + "?" + urlencode({"state": attempt.state, "code": "test-code"})
+    app.text_input(key="meli_returned_url").set_value(callback)
+    next(b for b in app.button if b.label == "Concluir conexão do Mercado Livre").click().run()
+    assert not app.exception
+    assert any("HTTP 400; invalid_grant" in error.value for error in app.error)
+    assert all("test-secret" not in error.value and "test-code" not in error.value for error in app.error)
+    assert all(key not in app.session_state for key in ("meli_attempt", "meli_authorization_url", "meli_returned_url", "meli_tokens"))
+    next(b for b in app.button if b.label == "Gerar autorização do Mercado Livre").click().run()
+    assert not app.exception and app.session_state["meli_attempt"].state != attempt.state

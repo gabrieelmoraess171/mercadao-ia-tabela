@@ -1,4 +1,4 @@
-PRECIFICADOR DE PEÇAS — Windows — VERSÃO 1.1.1
+PRECIFICADOR DE PEÇAS — Windows — VERSÃO 1.1.2
 
 1. Instale Python 3.12 de 64 bits em https://www.python.org/downloads/windows/
    Inclua pip, launcher py e Tcl/Tk.
@@ -9,7 +9,7 @@ PRECIFICADOR DE PEÇAS — Windows — VERSÃO 1.1.1
 Para atualizar uma instalação existente, encerre o programa e substitua seus
 arquivos de código pelos do pacote, mesclando a pasta services.
 Preserve .venv, .env, fotos e resultados. Não copie .venv de outro sistema.
-Confirme Versão 1.1.1 no topo do programa.
+Confirme Versão 1.1.2 no topo do programa.
 
 Os nomes padronizados e o Excel de cinco colunas são iguais aos do Mac.
 O programa requer Python; o pacote não é um executável .exe independente.

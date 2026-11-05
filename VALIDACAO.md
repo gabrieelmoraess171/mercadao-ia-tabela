@@ -1,5 +1,11 @@
 # Validação da versão 1.1.0 — 04/11/2026
 
+## Atualização 1.1.2 — Diagnóstico OAuth — 05/11/2026
+
+**59 testes passaram em 4,30 segundos**, cobrindo autenticação, interface, seletores e inicialização. A recusa na troca de token agora informa HTTP e somente códigos OAuth conhecidos. Códigos desconhecidos e respostas remotas não são renderizados; testes incluem mensagens com segredos simulados e campos JSON malformados. `invalid_grant` é explicado como recusa do código, sem atribuir uma causa única; o caso de renovação recebe explicação própria. A interface remove o link já utilizado e permite gerar uma tentativa nova.
+
+Não há credenciais da conta Mercado Livre do usuário neste ambiente. Os testes de OAuth usam transporte HTTP simulado; não confirmam a causa específica da recusa no Mac. O usuário confirmou que salvou a URI, e as imagens mostram PKCE ativado no portal e no programa. O diagnóstico específico depende da resposta à próxima tentativa na instalação atualizada.
+
 ## Atualização 1.1.1 — Mac e Windows — 05/11/2026
 
 Foram preparados pacotes separados: macOS com `iniciar.command` e Windows com `iniciar.bat`. O código de identificação, nomes e planilha é compartilhado. O iniciador Mac reutiliza `.venv`, verifica dependências/modelo e abre o Streamlit apenas em loopback.

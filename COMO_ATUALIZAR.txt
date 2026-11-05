@@ -1,4 +1,9 @@
-IDENTIFICAÇÃO, NOMES E PLANILHA — VERSÃO 1.1.1
+IDENTIFICAÇÃO, NOMES E PLANILHA — VERSÃO 1.1.2
+
+CONEXÃO MERCADO LIVRE: a versão 1.1.2 mostra HTTP e o código OAuth
+reconhecido da recusa, sem expor credenciais. Substitua app.py e os arquivos
+.py da pasta services pelos do pacote. Preserve .env, .venv e resultados.
+Uma autorização já enviada não é reutilizada; gere um novo link para tentar.
 
 MAC: siga LEIA_ME_MAC.txt. A versão 1.1.1 corrige o encerramento causado
 pelos seletores Tkinter no macOS e inclui o iniciador iniciar.command.
@@ -10,7 +15,7 @@ WINDOWS:
 3. Aceite substituir os arquivos existentes. Mescle a pasta services;
    não apague os outros arquivos dessa pasta.
 4. Abra iniciar.bat novamente.
-5. Confirme “Versão 1.1.1” no topo e o modelo gemini-3.5-flash-lite.
+5. Confirme “Versão 1.1.2” no topo e o modelo gemini-3.5-flash-lite.
 6. Informe a chave Gemini no campo protegido se necessário.
 
 O pacote substitui app.py e os módulos Python necessários dentro de services.

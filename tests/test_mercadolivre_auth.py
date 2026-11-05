@@ -164,3 +164,41 @@ def test_local_http_redirect_is_rejected_after_portal_refusal():
     for invalid in ("http://127.0.0.1:8765/mercadolivre/callback", "http://localhost:8765/mercadolivre/callback", "http://0.0.0.0:8765/callback"):
         with pytest.raises(AuthorizationError):
             validate_redirect_uri(invalid)
+
+
+@pytest.mark.parametrize("status,code,expected", [
+    (401, "invalid_client", "MESMO cadastro"),
+    (400, "invalid_grant", "não corresponder ao retorno/PKCE"),
+    (400, "invalid_request", "dados da solicitação"),
+    (403, "unauthorized_client", "Authorization Code"),
+    (403, "forbidden", "bloqueou o acesso"),
+    (403, "PA_UNAUTHORIZED_RESULT_FROM_POLICIES", "políticas"),
+    (400, "invalid_scope", "permissões"),
+])
+def test_oauth_reason_is_specific_without_exposing_remote_details(status, code, expected):
+    oauth = service(lambda r: httpx.Response(status, json={"error": code,
+        "message": "test-secret test-code PRIVATE", "error_description": "test-access test-refresh"}))
+    attempt, _ = oauth.begin()
+    with pytest.raises(AuthorizationError) as error:
+        oauth.finish(attempt, returned(attempt))
+    text = str(error.value)
+    assert f"HTTP {status}" in text and code in text and expected in text
+    assert all(value not in text for value in ("test-secret", "test-code", "PRIVATE", "test-access", "test-refresh"))
+    assert attempt.used
+
+
+@pytest.mark.parametrize("body", [[], {"error": ["invalid_client"]}, {"error": {"private": "test-secret"}},
+    {"error": "test-secret"}, {"error": "invalid_client test-secret"}])
+def test_unknown_or_malformed_error_never_leaks_content(body):
+    oauth = service(lambda r: httpx.Response(400, json=body))
+    attempt, _ = oauth.begin()
+    with pytest.raises(AuthorizationError) as error:
+        oauth.finish(attempt, returned(attempt))
+    assert "HTTP 400" in str(error.value) and "test-secret" not in str(error.value)
+
+
+def test_refresh_error_is_not_reported_as_an_authorization_code_error():
+    oauth = service(lambda r: httpx.Response(400, json={"error": "invalid_grant"}))
+    with pytest.raises(AuthorizationError) as error:
+        oauth.refresh(Tokens("test-access", "test-refresh", 900))
+    assert "renovação" in str(error.value) and "invalid_grant" in str(error.value)
