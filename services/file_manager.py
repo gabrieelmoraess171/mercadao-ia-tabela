@@ -5,7 +5,7 @@ import shutil
 import tempfile
 import unicodedata
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from uuid import uuid4
 
 from .image_processor import EXTENSIONS, MAX_FILE_BYTES, validate_size
@@ -17,6 +17,7 @@ def natural_key(path: Path):
 
 
 def list_images(folder: Path) -> list[Path]:
+    folder = folder.expanduser()
     if not folder.is_dir():
         raise ValueError("Selecione uma pasta local existente.")
     return sorted((p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in EXTENSIONS), key=natural_key)
@@ -58,21 +59,59 @@ def save_batch(batch: Batch):
 def load_batch(folder: Path) -> Batch:
     root = folder.expanduser().resolve()
     batch = Batch.model_validate_json((root / "lote.json").read_text(encoding="utf-8"))
+    moved_batch = _saved_path(batch.folder) != _saved_path(root)
     # Apenas lotes locais desta pasta podem ser retomados; não seguir destinos externos.
     batch.folder = root
     if batch.workbook_template and (root / "BASE_PLANILHA.xlsx").is_file():
         batch.workbook_template = root / "BASE_PLANILHA.xlsx"
+    relocated = {}
     for product in batch.products:
-        target = (root / product.folder.name).resolve()
+        previous_folder = _saved_path(product.folder)
+        target = (root / previous_folder.name).resolve()
         if target.parent != root:
             raise ValueError("Pasta de produto inválida.")
         product.folder = target
         for index, photo in enumerate(product.photos, 1):
-            if not photo.path.exists():
-                original = target / "ORIGINAIS" / f"{index:04d}-{safe_name(photo.path.stem)[:48]}{photo.path.suffix.lower()}"
-                if original.exists():
+            previous_path = photo.path
+            saved = _saved_path(previous_path)
+            # Um caminho já recuperado aponta para ORIGINAIS. Ao mover o lote,
+            # preserve esse caminho relativo, sem duplicar o prefixo 0001-.
+            try:
+                relative = saved.relative_to(previous_folder)
+                local = target.joinpath(*relative.parts).resolve()
+                if local.is_relative_to(target) and local.is_file():
+                    photo.path = local
+            except ValueError:
+                pass
+            # Ao transferir um lote, a cópia que acompanha o grupo prevalece:
+            # o computador de destino pode ter outro arquivo no antigo caminho.
+            if moved_batch or not photo.path.is_file():
+                original = target / "ORIGINAIS" / f"{index:04d}-{safe_name(saved.stem)[:48]}{saved.suffix.lower()}"
+                if original.is_file():
                     photo.path = original
+                elif saved.parent.name.upper() == "ORIGINAIS":
+                    original = target / "ORIGINAIS" / saved.name
+                    if original.is_file():
+                        photo.path = original
+            relocated[str(previous_path)] = photo.path
+    relocate_sources(batch, relocated)
     return batch
+
+
+def relocate_sources(batch: Batch, moved: dict):
+    """Mantém sequência e escolhas manuais ligadas aos arquivos recuperados."""
+    batch.source_paths = [moved.get(str(path), path) for path in batch.source_paths]
+    batch.source_overrides = {str(moved.get(path, path)): value for path, value in batch.source_overrides.items()}
+    batch.source_preserve = [str(moved.get(path, path)) for path in batch.source_preserve]
+    batch.source_merge_labels = [str(moved.get(path, path)) for path in batch.source_merge_labels]
+
+
+def _saved_path(value):
+    """Interpreta o caminho no sistema em que o lote foi salvo."""
+    text = str(value)
+    if re.match(r"^[A-Za-z]:[\\/]", text) or text.startswith("\\\\") or ("\\" in text and not text.startswith("/")):
+        return PureWindowsPath(text)
+    return PurePosixPath(text)
 
 
 def copy_original(source: Path, folder: Path, index: int):

@@ -74,6 +74,9 @@ def test_mac_launcher_reuses_environment_and_starts_in_project_folder(tmp_path, 
     uname = commands / "uname"
     uname.write_text('#!/bin/sh\nprintf "Darwin\\n"\n')
     uname.chmod(0o755)
+    sw_vers = commands / "sw_vers"
+    sw_vers.write_text('#!/bin/sh\nprintf "13.7.6\\n"\n')
+    sw_vers.chmod(0o755)
     interpreter = root / ".venv/bin/python"
     interpreter.parent.mkdir(parents=True)
     interpreter.write_text('#!/bin/sh\nprintf "%s:%s\\n" "$PWD" "$*" >> "$PRECIFICADOR_TEST_LOG"\n')

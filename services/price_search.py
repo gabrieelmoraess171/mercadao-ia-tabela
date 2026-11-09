@@ -17,15 +17,20 @@ class SearchUnavailable(RuntimeError):
 
 
 def item_id(url: str) -> str | None:
+    if not isinstance(url, str):
+        return None
     try:
         parsed = urlparse(url)
-        if parsed.scheme != "https" or parsed.username or parsed.port not in (None, 443):
+        if (parsed.scheme != "https" or parsed.username is not None or parsed.password is not None
+                or parsed.port not in (None, 443)):
             return None
     except ValueError:
         return None
     if parsed.hostname not in {"produto.mercadolivre.com.br", "www.mercadolivre.com.br", "mercadolivre.com.br"}:
         return None
-    match = re.search(r"\bMLB-?(\d{6,})\b", parsed.path, re.I)
+    # Páginas /p/MLB... são catálogos com várias ofertas, não um anúncio
+    # individual. O código deve iniciar o caminho do anúncio, como /MLB-123....
+    match = re.fullmatch(r"/MLB-?(\d{6,})(?:-[^/]*)?/?", parsed.path, re.I)
     return "MLB" + match.group(1) if match else None
 
 
@@ -111,12 +116,15 @@ class MercadoLivreProvider:
             if item.get("status") != "active" or item.get("currency_id") != "BRL":
                 continue
             url = item.get("permalink", "")
-            if not item_id(url):
+            if item_id(url) != identifier:
                 continue
             price = item.get("price")
-            if not isinstance(price, (int, float)) or price <= 0:
+            if isinstance(price, bool) or not isinstance(price, (int, float)):
                 continue
-            reference = Reference(title=item.get("title", "Sem título"), price=Decimal(str(price)), url=url,
+            amount = Decimal(str(price))
+            if not amount.is_finite() or amount <= 0:
+                continue
+            reference = Reference(title=item.get("title", "Sem título"), price=amount, url=url,
                 condition=item.get("condition", "unknown"), source="API oficial Mercado Livre", verified=True)
             if reference.condition != "used":
                 reference.status = "Descartado: não é usado"

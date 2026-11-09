@@ -1,28 +1,35 @@
-PRECIFICADOR DE PEÇAS — IA
+PRECIFICADOR DE PEÇAS — VERSÃO 1.2.0
 
-1. Extraia TODO o ZIP em uma pasta do seu computador Windows.
-2. Instale Python 3.12 de 64 bits, de python.org, com pip e o launcher py.
-3. Clique duas vezes em iniciar.bat e aguarde a instalação inicial.
-4. Mantenha a janela de comandos aberta enquanto usar o programa.
-5. No programa, configure sua chave Gemini no campo protegido.
-6. Selecione a pasta de fotografias, confira a ordem e escolha o destino.
+MAC
+Requer macOS 13 Ventura ou posterior (Intel ou Apple Silicon) e Python 3.12.
+Extraia o pacote Mac e execute iniciar.command. Alternativa no Terminal,
+dentro da pasta extraída: bash iniciar.command. Leia LEIA_ME_MAC.txt.
 
-MERCADO LIVRE (OPCIONAL)
+WINDOWS
+Requer Python 3.12 de 64 bits, com pip, launcher py e Tcl/Tk.
+Extraia o pacote Windows e execute iniciar.bat. Leia LEIA_ME_WINDOWS.txt.
 
-O programa tem uma opção “Conectar conta do Mercado Livre”.
-O retorno HTTP local foi recusado pelo cadastro. É necessário um retorno HTTPS.
-A página oauth-retorno/retorno.html está pronta para revisão, mas não publicada.
-Ela pode ser hospedada separadamente em uma página estática gratuita, sem enviar
-o programa ou suas fotos. Essa publicação ainda depende de autorização.
-Leia oauth-retorno/README.md. A URL real só estará disponível após a publicação.
+Mantenha o Terminal/janela de comandos aberto enquanto usar o programa.
+Os iniciadores verificam as versões das bibliotecas, instalam/atualizam quando
+necessário e preparam o modelo local. Não copie .venv entre sistemas.
 
-Quando a URL HTTPS existir e for aceita no cadastro, informe exatamente a mesma
-no programa, junto com App ID e Client Secret nos campos protegidos. Autorize no
-site oficial e use o botão de copiar da página de retorno para concluir no programa.
-Os demais recursos e a conferência manual continuam disponíveis sem essa conexão.
+DADOS E ATUALIZAÇÃO
+Preserve .env, fotos e resultados. Ao atualizar, copie os arquivos de código,
+requirements.txt, check_dependencies.py e o iniciador do seu sistema.
+No aplicativo, informe a chave Gemini, selecione as fotos e confira a sequência.
+Selecione sua planilha existente para trabalhar em uma cópia local.
 
-Não envie chaves ou Client Secret pelo chat. Não há garantia de que a conta
-terá permissão para buscar anúncios de concorrentes, mesmo após conectar.
+MERCADO LIVRE
+Conexão opcional. Use App ID e Client Secret da mesma aplicação.
+O retorno precisa ser uma página HTTPS publicada e salva no portal.
+A página oauth-retorno/retorno.html está incluída para hospedagem estática;
+confirme que a URL abre antes de cadastrá-la. Leia oauth-retorno/README.md.
+No portal e no programa, mantenha a mesma URI e configuração de PKCE.
 
-O programa depende do Python; não é um executável independente.
-Leia README.md para os detalhes e VALIDACAO.md para testes e limitações.
+Autorize no site oficial e use Copiar retorno para concluir no programa.
+Se a troca de token for recusada, a interface mostra HTTP/código OAuth
+reconhecido sem exibir segredos. A conexão só é confirmada quando a interface
+informa Conta conectada. A autorização não garante acesso à busca de concorrentes.
+
+O programa requer Python; os ZIPs não são executáveis .app/.exe independentes.
+Leia README.md e VALIDACAO.md para detalhes e limites da validação.

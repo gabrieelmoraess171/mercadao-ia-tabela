@@ -21,7 +21,7 @@ from services.mercadolivre_auth_ui import access_token, connection_ui
 from services.naming import format_identity_name, manual_identity, standardize_identity
 
 load_dotenv()
-APP_VERSION = "1.1.2"
+APP_VERSION = "1.2.0"
 st.set_page_config(page_title="Precificador de peças — IA", page_icon="⚙️", layout="wide")
 
 
@@ -235,6 +235,16 @@ def main():
             if ai:
                 ai.close()
 
+    def reanalyze_saved_batch(batch):
+        photos = [photo for product in batch.products for photo in product.photos]
+        manual = dict(batch.source_overrides)
+        manual.update({str(photo.path): photo.classification for photo in photos
+                       if photo.classification.evidence == "Classificação conferida manualmente."})
+        keep = set(batch.source_preserve) | {str(photo.path) for photo in photos if photo.preserve_original}
+        merge = set(batch.source_merge_labels) | {str(photo.path) for photo in photos if photo.merge_with_previous}
+        source_paths = batch.source_paths or [photo.path for photo in photos]
+        execute_processing(source_paths, batch.folder.parent, manual, keep, merge, batch.workbook_template)
+
     if paths and st.button("INICIAR PROCESSAMENTO", type="primary", disabled=not valid_order):
         execute_processing(ordered_paths, Path(st.session_state.destination), overrides, preserve, merge_labels)
     if st.session_state.get("processing_error"):
@@ -245,6 +255,8 @@ def main():
         if st.button("Abrir resultados salvos"):
             try:
                 st.session_state["batch"] = load_batch(Path(resume_path))
+                st.session_state.pop("processing_error", None)
+                st.rerun()
             except Exception:
                 st.error("Não foi possível abrir esse lote. Escolha uma pasta com um lote.json válido.")
 
@@ -264,6 +276,9 @@ def main():
         st.warning(issue)
     if not batch.products:
         st.info("O lote ainda não tem grupos identificados.")
+        if batch.source_paths and st.button("Reanalisar lote com a IA", type="primary"):
+            reanalyze_saved_batch(batch)
+            st.rerun()
         return
     if not any(p.identity.name != "Peça não identificada" for p in batch.products):
         st.error("Este lote ainda não tem peças identificadas. Use Reanalisar lote com a IA para refazer a leitura e o agrupamento com a conexão corrigida.")
@@ -306,13 +321,13 @@ def main():
                         product.references_edited = True
                 else:
                     standardize_identity(product.identity)
-                product.identity_reviewed = name != "Peça não identificada"
+                product.identity_reviewed = product.identity.name != "Peça não identificada"
                 if product.final != value:
                     product.final_override = True
                 product.final = value
             batch.excel_layout = "company"
-            save_batch(batch)
             export_excel(batch)
+            save_batch(batch)
             st.success("Excel atualizado na pasta do lote.")
             st.rerun()
         except Exception:
@@ -328,12 +343,18 @@ def main():
         except Exception:
             st.error("Feche a planilha no Excel e confira a permissão da pasta antes de tentar novamente.")
     if do_search and st.button("Pesquisar preços dos nomes salvos", type="primary"):
-        ai = get_ai()
+        st.session_state.pop("processing_error", None)
+        ai = None
         try:
+            ai = get_ai()
             run_search(batch, ai)
             if ai:
                 batch.usage = dict(ai.usage)
             save_batch(batch)
+        except AIError as exc:
+            st.session_state["processing_error"] = str(exc)
+        except Exception:
+            st.session_state["processing_error"] = "Não foi possível concluir a pesquisa. As referências salvas foram preservadas; confira a conexão e tente novamente."
         finally:
             if ai:
                 ai.close()
@@ -348,17 +369,17 @@ def main():
         st.session_state["sequence_version"] = st.session_state.get("sequence_version", 0) + 1
         st.rerun()
     if st.button("Reanalisar lote com a IA", type="primary"):
-        photos = [photo for p in batch.products for photo in p.photos]
-        manual = {str(photo.path): photo.classification for photo in photos
-                  if photo.classification.evidence == "Classificação conferida manualmente."}
-        keep = {str(photo.path) for photo in photos if photo.preserve_original}
-        merge = {str(photo.path) for photo in photos if photo.merge_with_previous}
-        execute_processing([photo.path for photo in photos], batch.folder.parent, manual, keep, merge, batch.workbook_template)
+        reanalyze_saved_batch(batch)
         st.rerun()
     if st.button("Retomar identificação e fotos pendentes do lote"):
-        ai = get_ai()
+        st.session_state.pop("processing_error", None)
+        ai = None
         try:
-            process_batch(batch, ai, options=Options(originals, quality), progress=update_progress)
+            if batch.processed < batch.total and batch.source_paths:
+                reanalyze_saved_batch(batch)
+            else:
+                ai = get_ai()
+                process_batch(batch, ai, options=Options(originals, quality), progress=update_progress)
         except AIError as exc:
             st.session_state["processing_error"] = str(exc)
         except Exception:
@@ -424,8 +445,8 @@ def main():
                     status="Compatível (conferência manual)" if accepted else "Revisão necessária", reason=row["OBSERVAÇÃO"] or ""))
             selected.references = new_refs
             selected.references_edited = True
-            save_batch(batch)
             export_excel(batch)
+            save_batch(batch)
             st.success("Referências salvas.")
             st.rerun()
         except ValueError as exc:

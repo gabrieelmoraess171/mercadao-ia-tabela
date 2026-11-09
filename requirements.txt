@@ -3,7 +3,11 @@ google-genai==1.75.0
 Pillow==12.3.0
 pillow-heif==1.8.1
 rembg==2.0.86
-onnxruntime==1.31.1
+onnxruntime==1.31.1; sys_platform != "darwin"
+# Wheels para Intel e Apple Silicon no macOS 13 ou posterior.
+onnxruntime==1.23.2; sys_platform == "darwin"
+numpy==2.3.5; sys_platform == "darwin"
+numba==0.62.1; sys_platform == "darwin"
 openpyxl==3.1.5
 httpx==0.28.1
 python-dotenv==1.2.4

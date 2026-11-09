@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from .excel_export import export_excel, price_range
-from .file_manager import atomic_write, copy_original, create_batch, safe_name, save_batch
+from .file_manager import atomic_write, copy_original, create_batch, relocate_sources, safe_name, save_batch
 from .image_processor import ImageProcessor, open_image
 from .gemini_service import AIError, AIUnavailableError
 from .models import Batch, Classification, Photo, PhotoKind, Product
@@ -18,6 +18,8 @@ class Options:
 def checkpoint(batch: Batch):
     save_batch(batch)
     export_excel(batch)
+    # O exportador atualiza posição/chave das linhas e consome flags de edição.
+    save_batch(batch)
 
 
 def prepare_batch(paths: list[Path], destination: Path, detector, *, overrides=None, merge_labels=None, preserve=None, progress=None,
@@ -34,6 +36,10 @@ def prepare_batch(paths: list[Path], destination: Path, detector, *, overrides=N
     batch.excel_layout = excel_layout
     attach_source(batch, workbook_template)
     batch.total = len(paths)
+    batch.source_paths = list(paths)
+    batch.source_overrides = {str(path): value.model_copy(deep=True) for path, value in (overrides or {}).items()}
+    batch.source_preserve = [str(path) for path in (preserve or [])]
+    batch.source_merge_labels = [str(path) for path in (merge_labels or [])]
     current = None
     seen = set()
     for index, path in enumerate(paths):
@@ -102,6 +108,7 @@ def process_batch(batch: Batch, ai=None, processor=None, options=None, *, preser
     known = reference_products(batch.workbook_template)
     options = options or Options()
     processor = processor or ImageProcessor(options.quality)
+    previous_error = batch.error
     for index, product in enumerate(batch.products):
         if product.status == "Concluído" and product.outputs and all((product.folder / name).is_file() for name in product.outputs):
             continue
@@ -112,11 +119,15 @@ def process_batch(batch: Batch, ai=None, processor=None, options=None, *, preser
             product.identity.evidence = ["Nome importado da planilha fornecida para este SKU; aplicação informada pelo usuário."]
             product.identity_reviewed = True
             product.final = known[product.sku]["final"]
+        if product.identity_reviewed and previous_error:
+            product.issues = [issue for issue in product.issues if issue != previous_error]
         if progress:
             progress("Identificando produto", index, len(batch.products), batch)
         if products and ai and product.identity.name == "Peça não identificada":
             try:
                 product.identity = ai.identify(products)
+                if previous_error:
+                    product.issues = [issue for issue in product.issues if issue != previous_error]
             except AIUnavailableError as exc:
                 batch.error = str(exc)
                 product.status = "Interrompido: falha na IA"
@@ -126,7 +137,7 @@ def process_batch(batch: Batch, ai=None, processor=None, options=None, *, preser
                 raise
             except Exception as exc:
                 product.issues.append(str(exc) if isinstance(exc, AIError) else "Identificação Gemini indisponível; corrija o nome manualmente ou tente novamente.")
-        if product.identity.confidence < 0.8:
+        if product.identity.confidence < 0.8 and not product.identity_reviewed:
             message = "Identificação incerta: confira nome e atributos antes de pesquisar preços."
             if message not in product.issues:
                 product.issues.append(message)
@@ -138,9 +149,13 @@ def process_batch(batch: Batch, ai=None, processor=None, options=None, *, preser
                 previous_folder = product.folder
                 previous_folder.rename(target)
                 product.folder = target
+                renamed_paths = {}
                 for photo in product.photos:
                     if photo.path.is_relative_to(previous_folder):
+                        previous_path = photo.path
                         photo.path = target / photo.path.relative_to(previous_folder)
+                        renamed_paths[str(previous_path)] = photo.path
+                relocate_sources(batch, renamed_paths)
         product.status = "Removendo fundo"
         save_batch(batch)
         product_index = 0
@@ -176,6 +191,14 @@ def process_batch(batch: Batch, ai=None, processor=None, options=None, *, preser
         product.status = "Revisão necessária" if product.issues or len(product.outputs) < len(products) else "Concluído"
         if ai:
             batch.usage = dict(ai.usage)
+        checkpoint(batch)
+    # A classificação incompleta continua pendente: retomar imagens não pode
+    # fingir que os arquivos ainda não classificados foram processados.
+    unresolved_error = previous_error and any(previous_error in product.issues for product in batch.products)
+    if batch.processed == batch.total and not unresolved_error:
+        batch.error = None
+        if previous_error:
+            batch.issues = [issue for issue in batch.issues if issue != previous_error]
         checkpoint(batch)
     return batch
 

@@ -1,6 +1,6 @@
-IDENTIFICAÇÃO, NOMES E PLANILHA — VERSÃO 1.1.2
+IDENTIFICAÇÃO, NOMES E PLANILHA — VERSÃO 1.2.0
 
-CONEXÃO MERCADO LIVRE: a versão 1.1.2 mostra HTTP e o código OAuth
+CONEXÃO MERCADO LIVRE: a versão 1.2.0 mostra HTTP e o código OAuth
 reconhecido da recusa, sem expor credenciais. Substitua app.py e os arquivos
 .py da pasta services pelos do pacote. Preserve .env, .venv e resultados.
 Uma autorização já enviada não é reutilizada; gere um novo link para tentar.
@@ -15,12 +15,14 @@ WINDOWS:
 3. Aceite substituir os arquivos existentes. Mescle a pasta services;
    não apague os outros arquivos dessa pasta.
 4. Abra iniciar.bat novamente.
-5. Confirme “Versão 1.1.2” no topo e o modelo gemini-3.5-flash-lite.
+5. Confirme “Versão 1.2.0” no topo e o modelo gemini-3.5-flash-lite.
 6. Informe a chave Gemini no campo protegido se necessário.
 
-O pacote substitui app.py e os módulos Python necessários dentro de services.
+Atualize app.py, os arquivos .py de services, check_dependencies.py,
+requirements.txt e o iniciador correspondente ao seu sistema.
 Não altera sua .env, o ambiente .venv, suas fotos nem as pastas de resultados.
-Não é necessário instalar Python ou as bibliotecas novamente.
+Não é necessário instalar Python novamente. Os iniciadores conferem as versões
+das bibliotecas e aplicam as atualizações necessárias do requirements.txt.
 
 PARA RECUPERAR UM LOTE QUE FICOU NÃO IDENTIFICADO
 

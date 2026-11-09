@@ -124,11 +124,15 @@ def _side(value) -> str:
 
 def _position(value) -> str:
     text = _fold(_known(value))
-    if re.search(FRONT, text):
+    front, rear = bool(re.search(FRONT, text)), bool(re.search(REAR, text))
+    if front and rear:
+        return "DIANT./TRAS."
+    if front:
         return "DIANT."
-    if re.search(REAR, text):
+    if rear:
         return "TRAS."
-    return _text(value) if text in ("SUPERIOR", "INFERIOR", "CENTRAL") else ""
+    positions = set(re.findall(r"\b(?:SUPERIOR|INFERIOR|CENTRAL)\b", text))
+    return positions.pop() if len(positions) == 1 else ""
 
 
 def _years(value) -> str:
@@ -155,9 +159,10 @@ def _strip_phrase(text: str, phrase: str) -> str:
     return re.sub(r"\b" + re.escape(_fold(phrase)) + r"\b", " ", text)
 
 
-def _part(value: str) -> str:
-    text = _fold(value).replace("-", " ")
-    text = re.sub(r"\s+", " ", text).strip()
+def _part_match(value: str) -> tuple[str, str]:
+    """Separa o tipo conhecido dos qualificadores, sem apagar características."""
+    text = re.sub(r"(?<=[A-Z])-+(?=[A-Z])", " ", _fold(value))
+    text = re.sub(r"\s+", " ", text).strip(" .-/")
     prefix = ""
     kit = re.match(r"^(KIT|PAR)(?: DE)?\s+", text)
     if kit:
@@ -167,64 +172,85 @@ def _part(value: str) -> str:
     for alias, canonical in choices:
         match = re.match(re.escape(alias) + r"(?:\b|$)", text)
         if match:
-            remainder = text[match.end():].strip()
-            remainder = re.sub(r"\b(?:ORIGINAL|USAD[AO]|AUTOMOTIV[AO]|DO|DA|DE|LADO|VEICULO|CARRO|EXTERNO)\b", " ", remainder)
-            remainder = re.sub(r"\s+", " ", remainder).strip(" .-/")
-            return prefix + canonical + (" " + remainder if remainder else "")
-    return prefix + re.sub(r"\s+", " ", text).strip(" .-/")
+            return prefix + canonical, text[match.end():].strip(" .-/")
+    return "", prefix + text
+
+
+def _part(value: str) -> str:
+    canonical, qualifiers = _part_match(value)
+    return " ".join(v for v in (canonical, qualifiers) if v)
 
 
 def _pieces(identity: "Identity", *, manual: bool = False) -> dict[str, str]:
-    if not manual and not any((identity.part_type, identity.vehicle_brand, identity.vehicle_model, identity.side, identity.position, identity.years)):
-        return _pieces(identity, manual=True)
+    # Nome e campos estruturados são duas fontes complementares. Não excluir o
+    # nome só porque o catálogo trouxe um part_type genérico (ex.: RETROVISOR).
     raw = re.sub(r"(?<=[A-Z])(?=(?:19|20)\d{2}|\d{2}[-/]\d{2}\b)", " ", _fold(identity.name))
     brand = _brand(identity.vehicle_brand)
     model, version = _known(identity.vehicle_model), _known(identity.version)
-    side, position, years = _side(identity.side), _position(identity.position), _years(identity.years)
-    if manual:
-        side, position = side or _side(raw), position or _position(raw)
-        match = re.search(YEAR_RANGE, raw)
+    side, position = _side(identity.side), _position(identity.position)
+    years = _years(identity.years) or _years(model)
+    # Campos antigos podem conter atributos repetidos no modelo. Antes de
+    # removê-los do texto, retenha o que foi explicitamente informado.
+    side = side or _side(model)
+    position = position or _position(model)
+    year_match = re.search(YEAR_RANGE, raw)
+    if year_match:
+        years = years or _years(year_match[0])
+
+    brand_match = None
+    candidates = BRAND_ALIASES.get(brand, (brand,)) if brand else tuple(
+        alias for aliases in BRAND_ALIASES.values() for alias in aliases)
+    for alias in sorted(candidates, key=len, reverse=True):
+        if alias and (found := re.search(r"\b" + re.escape(_fold(alias)) + r"\b", raw)):
+            brand_match = found
+            brand = brand or _brand(alias)
+            break
+    base = raw
+    suffix = ""
+    if brand_match:
+        base = raw[:brand_match.start()]
+        tail = raw[brand_match.end():].strip()
+        match = re.search(YEAR_RANGE, tail)
         if match:
-            years = years or _years(match[0])
-        if not brand:
-            for canonical, aliases in BRAND_ALIASES.items():
-                found = next((re.search(r"\b" + re.escape(alias) + r"\b", raw) for alias in aliases
-                              if re.search(r"\b" + re.escape(alias) + r"\b", raw)), None)
-                if found:
-                    brand = canonical
-                    model = model or raw[found.end():]
-                    break
-        # Aplicação escrita depois de T.D/D.E etc., mesmo sem marca informada.
-        if not brand and match:
-            marker = re.search(r"\b[DT][./][DE]\b", raw)
-            if marker and marker.end() < match.start():
-                model = raw[marker.end():match.start()].strip()
-        before_brand = raw
-        for alias in BRAND_ALIASES.get(brand, (brand,)):
-            if alias and (brand_match := re.search(r"\b" + re.escape(alias) + r"\b", raw)):
-                before_brand = raw[:brand_match.start()]
-                break
-        abbreviated_side = re.search(r"\b([DE])\.?\s*$", before_brand)
-        if not side and abbreviated_side:
-            side = "L.D" if abbreviated_side[1] == "D" else "L.E"
-    base = _fold(identity.part_type) if identity.part_type else raw
-    if identity.part_type and (kit := re.match(r"^(KIT|PAR)(?: DE)?\s+", raw)) and not re.match(r"^(KIT|PAR)\s", base):
-        base = kit[1] + " " + base
-    for field in (identity.vehicle_brand, identity.vehicle_model, identity.version, identity.manufacturer):
+            model = model or tail[:match.start()]
+            suffix = tail[match.end():].strip(" .-/")
+        else:
+            model = model or tail
+    elif not brand and year_match:
+        # Aplicação explicitamente escrita depois da abreviação de lado.
+        marker = re.search(r"\b[LDT][./][DE]\b", raw)
+        if marker and marker.end() < year_match.start():
+            model = model or raw[marker.end():year_match.start()].strip()
+
+    for field in (identity.vehicle_brand, model, version, identity.manufacturer):
         base = _strip_phrase(base, _known(field))
-    if manual and brand:
-        for alias in BRAND_ALIASES.get(brand, (brand,)):
-            match = re.search(r"\b" + re.escape(alias) + r"\b", base)
-            if match:
-                base = base[:match.start()]
-                break
-    elif manual and model:
-        base = _strip_phrase(base, model)
     base = re.sub(YEAR_RANGE, " ", base)
-    base = re.sub(SIDE_RIGHT + "|" + SIDE_LEFT + "|" + FRONT + "|" + REAR, " ", base)
-    if manual and abbreviated_side:
-        base = re.sub(r"\b[DE]\.?\s*$", " ", base)
-    part = _part(base)
+    if not _known(base) and identity.part_type:
+        base = _fold(identity.part_type)
+    canonical, qualifiers = _part_match(base)
+    # Se o nome é genérico/desconhecido, o tipo informado ainda pode identificá-lo.
+    if _fold(identity.name) in UNKNOWN and _known(identity.part_type):
+        canonical, qualifiers = _part_match(identity.part_type)
+
+    side_source = qualifiers if canonical else base
+    side = side or _side(side_source)
+    abbreviated = re.search(r"\b([DE])\.?\s*$", side_source)
+    if not side and abbreviated:
+        side = "L.D" if abbreviated[1] == "D" else "L.E"
+    # TRASEIRA em TAMPA TRASEIRA pertence ao tipo; não é descartada como posição.
+    position = position or _position(side_source)
+    cleaned = re.sub(SIDE_RIGHT + "|" + SIDE_LEFT + "|" + FRONT + "|" + REAR, " ", side_source)
+    if position in ("SUPERIOR", "INFERIOR", "CENTRAL"):
+        cleaned = _strip_phrase(cleaned, position)
+    if abbreviated:
+        cleaned = re.sub(r"\b[DE]\.?\s*$", " ", cleaned)
+    if canonical:
+        part = " ".join(v for v in (canonical, re.sub(r"\s+", " ", cleaned).strip(" .-/"), suffix) if v)
+    else:
+        part = " ".join(v for v in (re.sub(r"\s+", " ", cleaned).strip(" .-/"), suffix) if v)
+    if not part and _known(identity.part_type):
+        part = _part(identity.part_type)
+
     model = re.sub(YEAR_RANGE, " ", _fold(model))
     model = re.sub(SIDE_RIGHT + "|" + SIDE_LEFT + "|" + FRONT + "|" + REAR, " ", model)
     for alias in BRAND_ALIASES.get(brand, (brand,)):
@@ -233,16 +259,12 @@ def _pieces(identity: "Identity", *, manual: bool = False) -> dict[str, str]:
     version = _text(version)
     if version and version in model:
         version = ""
-    # Farol já é uma peça dianteira no catálogo; evita FAROL vs FAROL DIANTEIRO.
     if part in ("FAROL", "FAROL DE NEBLINA") and position == "DIANT.":
         position = ""
     return dict(part=part, side=side, position=position, brand=brand, model=model, version=version, years=years)
 
 
-def format_identity_name(identity: "Identity") -> str:
-    if _fold(identity.name) in UNKNOWN and not _known(identity.part_type):
-        return "Peça não identificada"
-    values = _pieces(identity)
+def _format(values: dict[str, str]) -> str:
     side, position = values["side"], values["position"]
     if side in ("L.D", "L.E") and position in ("DIANT.", "TRAS."):
         side = ("D." if position == "DIANT." else "T.") + side[-1]
@@ -250,10 +272,28 @@ def format_identity_name(identity: "Identity") -> str:
     return " ".join(value for value in (values["part"], position, side, values["brand"], values["model"], values["version"], values["years"]) if value) or "Peça não identificada"
 
 
+def format_identity_name(identity: "Identity") -> str:
+    if _fold(identity.name) in UNKNOWN and not _known(identity.part_type):
+        return "Peça não identificada"
+    return _format(_pieces(identity))
+
+
 def standardize_identity(identity: "Identity") -> str:
-    name = format_identity_name(identity)
+    if _fold(identity.name) in UNKNOWN and not _known(identity.part_type):
+        identity.name = "Peça não identificada"
+        return "Peça não identificada"
+    values = _pieces(identity)
+    name = _format(values)
     if name != "Peça não identificada":
-        identity.part_type = _pieces(identity)["part"]
+        # Persistir todos os atributos derivados torna a normalização idempotente,
+        # inclusive ao retomar lotes antigos que só guardavam o nome completo.
+        identity.part_type = values["part"] or None
+        identity.side = values["side"] or None
+        identity.position = values["position"] or None
+        identity.vehicle_brand = values["brand"] or None
+        identity.vehicle_model = values["model"] or None
+        identity.version = values["version"] or None
+        identity.years = values["years"] or None
         identity.name = name
     return name
 
@@ -261,12 +301,5 @@ def standardize_identity(identity: "Identity") -> str:
 def manual_identity(name: str) -> "Identity":
     from .models import Identity
     identity = Identity(name=name.strip(), evidence=["Nome conferido manualmente; somente dados informados pelo usuário."])
-    values = _pieces(identity, manual=True)
-    identity.part_type = values["part"] or None
-    identity.side = values["side"] or None
-    identity.position = values["position"] or None
-    identity.vehicle_brand = values["brand"] or None
-    identity.vehicle_model = values["model"] or None
-    identity.years = values["years"] or None
-    identity.name = format_identity_name(identity)
+    standardize_identity(identity)
     return identity

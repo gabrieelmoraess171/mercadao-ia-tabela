@@ -1,4 +1,37 @@
-# Validação da versão 1.1.0 — 04/11/2026
+# Validação do precificador — versão 1.2.0
+
+## Revisão funcional da versão 1.2.0
+
+**Resultado final: 250 testes aprovados, zero falhas e zero pulados, em 72,51 segundos.** A execução inclui a API Gemini real com etiqueta sintética e foto pública de roda, segmentação ONNX real, os cenários de 500 arquivos/100 SKUs, revisão pela interface e as novas regressões. O teste da IA real não usa fotografias do estoque. `pip check`, compilação Python, sintaxe Bash e `git diff --check` também passaram.
+
+Foram corrigidas regressões reproduzidas na revisão completa:
+
+- Nomes completos e qualificadores funcionais permanecem estáveis após salvar, padronizar e exportar, incluindo lotes antigos que guardavam somente o nome. Repetições de posição e a identificação desconhecida são normalizadas sem inventar aplicação.
+- Grupos com SKU repetido ou ausente recebem linhas e referências independentes. Linhas de estoque com vários SKUs são preservadas e geram aviso para revisão quando processadas individualmente. Comentários existentes são mantidos.
+- Edições manuais posteriores no Excel não são sobrescritas por flags antigas. Planilhas de lotes anteriores podem servir de base sem perder preços nem duplicar referências.
+- A sequência completa e as escolhas manuais dos arquivos pendentes são salvas após interrupção. Originais podem ser recuperados após mover o lote, inclusive Windows→Mac. A primeira foto ainda pode usar OCR após a validação da API.
+- Uma retomada bem-sucedida retira o erro já resolvido; uma falha de identificação ainda pendente continua visível.
+- Iniciar outra autorização remove o token da conta anterior. Páginas de catálogo não contam como anúncios individuais; links precisam corresponder ao item consultado, e preços booleanos ou não finitos são rejeitados. O retorno orienta voltar à aba original para preservar a sessão.
+
+A planilha anexada foi conferida integralmente em uma cópia local: os 146 registros mantiveram seus valores e fórmulas, e o hash do original permaneceu igual. Todas as 145 descrições interpretáveis ficaram estáveis em quatro normalizações sucessivas. Uma identificação ambígua e duas linhas com preços textuais geram avisos; não foram presumidos códigos ou valores. O estoque não integra o GitHub nem os ZIPs.
+
+Os pacotes são gerados por `python build_packages.py`, com uma lista explícita de arquivos públicos. Testes verificam igualdade do código com o repositório, inicializador correto por sistema e ausência de credenciais, bibliotecas instaladas e planilhas do usuário.
+
+Os dois ZIPs finais foram extraídos em pastas temporárias e executados por Streamlit AppTest usando os módulos do próprio pacote. Em cada um, foram processados dois SKUs, gravados JPGs, revisados os nomes completos de portas Duster/Sandero e reaberto o Excel com cinco colunas e valor final vazio. Essa execução ocorreu em Linux e não substitui a conferência dos diálogos nativos nos computadores de destino.
+
+## Limites atuais
+
+Os testes de OAuth e da consulta de anúncios utilizam respostas simuladas. A conexão da conta Mercado Livre do usuário e suas permissões continuam dependendo da autorização na instalação dele. Não foi executado um Mac ou Windows nativo; os seletores foram testados por simulação e a instalação macOS foi validada por resolução de pacotes. Não foram fornecidas fotos reais do estoque para medir a precisão da identificação ou da remoção de fundo.
+
+## Histórico das validações anteriores
+
+## Revisão 1.2.0 — Instalação e portabilidade — 05/11/2026
+
+A dependência ONNX Runtime 1.31.1 anterior não tinha distribuição macOS Intel: oferecia apenas ARM64 para macOS 14+. A promessa de suporte Intel por instalar Python universal2 era incorreta. A versão nova usa ONNX Runtime 1.23.2 no macOS e declara macOS 13 Ventura como mínimo. NumPy 2.3.5 e Numba 0.62.1 também são fixados no Mac, pois versões mais recentes de Numba deixaram de oferecer distribuição Intel. Windows/Linux continuam com ONNX Runtime 1.31.1.
+
+As distribuições Python 3.12 foram consultadas no PyPI e a resolução completa de dependências foi executada com `pip install --dry-run --ignore-installed --only-binary=:all:` para os destinos `macosx_13_0_x86_64` e `macosx_13_0_arm64`. Cada destino resolveu 74 distribuições sem compilação local. A combinação escolhida satisfaz os requisitos de rembg 2.0.86. Esse procedimento valida a disponibilidade e a resolução; não executa bibliotecas macOS neste Linux.
+
+O iniciador verifica o macOS mínimo antes de instalar. A checagem de dependências agora verifica as versões do `requirements.txt`, além de importar os módulos, para que uma instalação antiga receba atualizações necessárias. Foram executados 12 testes de dependências/seletores/iniciador, com zero falhas; a checagem real de dependências no ambiente Linux e a sintaxe Bash também passaram. A execução nativa em Mac e Windows continua pendente.
 
 ## Atualização 1.1.2 — Diagnóstico OAuth — 05/11/2026
 

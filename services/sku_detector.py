@@ -7,9 +7,13 @@ from .models import Classification, PhotoKind
 
 def from_ocr(text: str) -> Classification:
     # Exige a palavra SKU; números de OEM, régua ou balança não iniciam grupos.
-    match = re.search(r"\bSKU[ \t]*[:#\-]?[ \t]*([A-Za-z0-9][A-Za-z0-9._\-]{0,39})", text, re.IGNORECASE)
-    if match:
-        return Classification(kind=PhotoKind.LABEL, sku=match.group(1), confidence=0.9, evidence="OCR: " + match.group(0))
+    match = re.search(r"\bSKU\b(?P<separator>\s*[:#\-]?\s*)(?P<token>[^\s:;,#]+)", text, re.IGNORECASE)
+    if match and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/\-]{0,39}", match["token"]):
+        # Em outra linha, uma palavra como Produto/Peso não é prova de SKU.
+        # Códigos com letras continuam válidos na mesma linha ou com dígitos.
+        multiline = "\n" in match["separator"] or "\r" in match["separator"]
+        if not multiline or any(character.isdigit() for character in match["token"]):
+            return Classification(kind=PhotoKind.LABEL, sku=match["token"], confidence=0.9, evidence="OCR: " + match.group(0))
     if re.search(r"\bSKU\b", text, re.IGNORECASE):
         return Classification(kind=PhotoKind.LABEL, evidence="Etiqueta SKU com código ilegível.")
     return Classification()
@@ -35,8 +39,7 @@ class SkuDetector:
             return
 
     def classify(self, path):
-        if str(path) in self._checked:
-            return self._checked.pop(str(path))
+        checked = self._checked.pop(str(path), None)
         result = Classification()
         try:
             import pytesseract
@@ -49,6 +52,8 @@ class SkuDetector:
                 return result
         except Exception:
             self.ocr_available = False
+        if checked is not None:
+            return checked
         if self.ai:
             return self.ai.classify(path)
         if result.kind == PhotoKind.LABEL:

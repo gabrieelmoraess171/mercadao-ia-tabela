@@ -23,6 +23,9 @@ def _begin():
     try:
         oauth = _oauth()
         attempt, url = oauth.begin()
+        # Uma nova autorização pode ser para outra conta. Não continuar usando
+        # a conexão anterior se esta tentativa for cancelada ou recusada.
+        st.session_state.pop("meli_tokens", None)
         st.session_state.pop("meli_attempt", None)
         st.session_state.pop("meli_authorization_url", None)
         st.session_state["meli_attempt"] = attempt

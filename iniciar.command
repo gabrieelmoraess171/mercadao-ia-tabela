@@ -17,6 +17,13 @@ if [ "$(uname -s)" != "Darwin" ]; then
     exit 1
 fi
 
+mac_version=$(sw_vers -productVersion)
+mac_major=${mac_version%%.*}
+if [ "$mac_major" -lt 13 ]; then
+    printf 'Esta versão requer macOS 13 Ventura ou posterior (Intel ou Apple Silicon).\n'
+    falha
+fi
+
 if [ ! -x ".venv/bin/python" ]; then
     if ! command -v python3.12 >/dev/null 2>&1; then
         printf 'Instale Python 3.12 para macOS em https://www.python.org/downloads/macos/\n'

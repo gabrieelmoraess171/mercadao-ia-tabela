@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from enum import Enum
 from pathlib import Path
+from uuid import uuid4
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -83,6 +84,7 @@ class Product(BaseModel):
     final_override: bool = False
     references_edited: bool = False
     excel_row: int | None = None
+    excel_key: str = Field(default_factory=lambda: uuid4().hex)
     status: str = "Aguardando"
     issues: list[str] = Field(default_factory=list)
     outputs: list[str] = Field(default_factory=list)
@@ -101,3 +103,7 @@ class Batch(BaseModel):
     error: str | None = None
     excel_layout: str = "standard"
     workbook_template: Path | None = None
+    source_paths: list[Path] = Field(default_factory=list)
+    source_overrides: dict[str, Classification] = Field(default_factory=dict)
+    source_preserve: list[str] = Field(default_factory=list)
+    source_merge_labels: list[str] = Field(default_factory=list)

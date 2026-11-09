@@ -1,7 +1,8 @@
-PRECIFICADOR DE PEÇAS — macOS — VERSÃO 1.1.2
+PRECIFICADOR DE PEÇAS — macOS — VERSÃO 1.2.0
 
 PRIMEIRA INSTALAÇÃO
-1. Instale Python 3.12 para macOS em https://www.python.org/downloads/macos/
+1. Use macOS 13 Ventura ou posterior (Intel ou Apple Silicon).
+   Instale Python 3.12 para macOS em https://www.python.org/downloads/macos/
    O instalador universal2 atende Macs Apple Silicon e Intel.
 2. Extraia o pacote e mantenha todos os arquivos juntos.
 3. Abra iniciar.command. A primeira execução prepara as bibliotecas e o modelo.
@@ -17,10 +18,13 @@ PARA ATUALIZAR O MAC JÁ INSTALADO
    app.py
    todos os arquivos .py de services (na pasta services existente)
    iniciar.command
+   check_dependencies.py
+   requirements.txt
 3. Preserve sua pasta .venv, seu .env, suas fotos e os resultados.
 4. No Terminal dessa pasta, execute:
     bash iniciar.command
-   As dependências já instaladas serão reaproveitadas. Confirme Versão 1.1.2.
+   As dependências serão conferidas e atualizadas se as versões não corresponderem.
+   No Mac usa ONNX Runtime 1.23.2, NumPy 2.3.5 e Numba 0.62.1. Confirme Versão 1.2.0.
 
 CORREÇÃO DOS SELETORES
 No macOS, selecionar pasta ou planilha usa o seletor do sistema em um processo

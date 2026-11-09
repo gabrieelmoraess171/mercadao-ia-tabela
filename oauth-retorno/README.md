@@ -1,4 +1,4 @@
-# Página de retorno HTTPS — pronta para revisão, não publicada
+# Página de retorno HTTPS
 
 `retorno.html` é uma página estática independente do programa. Não tem servidor próprio, dependências, analytics, imagens ou serviços de armazenamento. Uma hospedagem estática gratuita com HTTPS, como GitHub Pages, pode disponibilizar apenas esse arquivo; não é necessário hospedar o aplicativo, instalar serviços no PC ou comprar domínio.
 
@@ -18,7 +18,7 @@ Não há `fetch`, requisições adicionais, cookies nem armazenamento no navegad
 4. Cadastre a URL HTTPS real que termina em `/retorno.html` nas URIs de redirect do Mercado Livre. A aceitação pelo portal e a autorização da conta ainda precisam ser verificadas.
 5. Informe exatamente a mesma URL no programa, juntamente com App ID e Client Secret nos campos indicados. Gere a autorização e use o botão de copiar desta página ao retornar.
 
-O programa e as fotos permanecem no computador. Essa página é uma exceção à preferência original de não utilizar hospedagem em nuvem; aguarda autorização do usuário para publicar.
+O programa e as fotos permanecem no computador. A publicação desta página é independente da instalação do programa. Confirme que a URL carrega na hospedagem sob seu controle antes de cadastrá-la. Ao voltar da autorização, copie o retorno e retorne à aba original do programa; abrir outra aba pode criar uma sessão sem a tentativa de conexão.
 
 ## Manutenção
 
