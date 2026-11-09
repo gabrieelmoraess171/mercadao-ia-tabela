@@ -12,6 +12,7 @@ class PhotoKind(str, Enum):
     PRODUCT = "Produto"
     MEASUREMENT = "Medida"
     WEIGHT = "Peso"
+    DETAIL = "Código/Detalhe"
     UNKNOWN = "Não identificada"
 
 
@@ -70,6 +71,7 @@ class Photo(BaseModel):
     preserve_original: bool = False
     merge_with_previous: bool = False
     review_reason: str | None = None
+    output: str | None = None
 
 
 class Product(BaseModel):

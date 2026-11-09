@@ -1,5 +1,8 @@
 from decimal import Decimal
+import os
+import shutil
 
+import pytest
 from openpyxl import load_workbook
 
 from services.excel_export import export_excel, price_range
@@ -19,7 +22,11 @@ class Detector:
 
 
 class Processor:
-    def process(self, path, **kwargs):
+    def __init__(self):
+        self.calls = []
+
+    def process(self, path, preserve_original=False):
+        self.calls.append((path.name, preserve_original))
         if "fail" in path.name:
             raise ValueError("Falha individual simulada")
         return ImageProcessor().process(path, preserve_original=True)
@@ -37,7 +44,7 @@ def test_grouping_variable_lengths_leading_zeros_and_excel(photo, tmp_path):
     assert [p.sku for p in batch.products] == ["024", "025"]
     assert [len(p.photos) for p in batch.products] == [4, 2]
     process_batch(batch, processor=Processor())
-    assert [len(p.outputs) for p in batch.products] == [3, 1]
+    assert [len(p.outputs) for p in batch.products] == [4, 2]
     assert len(list(batch.products[0].folder.joinpath("ORIGINAIS").iterdir())) == 4
     restored = load_batch(batch.folder)
     assert restored.products[0].sku == "024"
@@ -67,8 +74,8 @@ def test_duplicate_sku_no_overwrite_and_continues_after_failure(photo, tmp_path)
     paths = [photo("1-label-024.png"), photo("fail.png"), photo("good.png"), photo("2-label-024.png"), photo("other.png")]
     batch = prepare_batch(paths, tmp_path / "out", Detector())
     process_batch(batch, processor=Processor())
-    assert batch.products[0].outputs == ["02.jpg"]
-    assert batch.products[1].outputs == ["01.jpg"]
+    assert batch.products[0].outputs == ["01.jpg", "03.jpg"]
+    assert batch.products[1].outputs == ["01.jpg", "02.jpg"]
     assert batch.products[0].folder != batch.products[1].folder
     assert any("repetido" in s for s in batch.products[1].issues)
     before = (batch.products[1].folder / "01.jpg").stat().st_mtime_ns
@@ -77,14 +84,20 @@ def test_duplicate_sku_no_overwrite_and_continues_after_failure(photo, tmp_path)
     assert create_batch(tmp_path / "out").folder != batch.folder
 
 
-def test_only_product_photos_are_processed_and_originals_optional(photo, tmp_path):
-    paths = [photo(f"{n}.png") for n in range(5)]
-    kinds = [PhotoKind.LABEL, PhotoKind.PRODUCT, PhotoKind.MEASUREMENT, PhotoKind.WEIGHT, PhotoKind.PRODUCT]
+def test_product_and_support_photos_are_processed_and_originals_optional(photo, tmp_path):
+    paths = [photo(f"{n}.png") for n in range(6)]
+    kinds = [PhotoKind.LABEL, PhotoKind.PRODUCT, PhotoKind.MEASUREMENT, PhotoKind.WEIGHT,
+             PhotoKind.DETAIL, PhotoKind.PRODUCT]
     overrides = {str(path): Classification(kind=kind, sku="001" if n == 0 else None, confidence=1)
                  for n, (path, kind) in enumerate(zip(paths, kinds))}
     batch = prepare_batch(paths, tmp_path / "out", Detector(), overrides=overrides)
-    process_batch(batch, processor=Processor(), options=Options(save_originals=False))
-    assert batch.products[0].outputs == ["01.jpg", "02.jpg"]
+    processor = Processor()
+    process_batch(batch, processor=processor, options=Options(save_originals=False))
+    assert batch.products[0].outputs == [f"{i:02d}.jpg" for i in range(1, 7)]
+    assert processor.calls == [("0.png", False), ("1.png", False), ("2.png", True),
+                               ("3.png", False), ("4.png", True), ("5.png", False)]
+    assert batch.products[0].photos[4].review_reason
+    assert "inscrição está legível" in batch.products[0].photos[4].review_reason
     assert not (batch.products[0].folder / "ORIGINAIS").exists()
 
 
@@ -96,6 +109,8 @@ def test_ocr_labels_and_no_invented_sku():
     assert from_ocr("OEM 123456 42 kg").kind == PhotoKind.UNKNOWN
 
 
+@pytest.mark.skipif(not (os.getenv("TESSERACT_CMD") or shutil.which("tesseract")),
+                    reason="Tesseract é opcional; instale-o para executar o teste OCR real")
 def test_real_tesseract_recognizes_label(tmp_path):
     import pytesseract
     from PIL import Image, ImageDraw, ImageFont
@@ -216,6 +231,6 @@ def test_500_photo_batch_variable_group_lengths(photo, tmp_path):
     process_batch(batch, processor=LocalTestProcessor(), options=Options(save_originals=False))
     assert batch.processed == 500
     assert [(p.sku, len(p.photos)) for p in batch.products] == expected
-    assert all(len(p.outputs) == count-1 for p, (_, count) in zip(batch.products, expected))
-    assert sum(len(p.outputs) for p in batch.products) == 400
+    assert all(len(p.outputs) == count for p, (_, count) in zip(batch.products, expected))
+    assert sum(len(p.outputs) for p in batch.products) == 500
     assert load_workbook(export_excel(batch)).active.max_row == 101

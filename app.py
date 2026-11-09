@@ -21,7 +21,7 @@ from services.mercadolivre_auth_ui import access_token, connection_ui
 from services.naming import format_identity_name, manual_identity, standardize_identity
 
 load_dotenv()
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.2.1"
 st.set_page_config(page_title="Precificador de peças — IA", page_icon="⚙️", layout="wide")
 
 
@@ -409,10 +409,35 @@ def main():
             st.write("Inscrições visíveis: " + "; ".join(selected.identity.inscriptions))
         for issue in dict.fromkeys(selected.issues):
             st.warning(issue)
-        for name in selected.outputs:
-            if (selected.folder / name).exists():
-                st.image(str(selected.folder / name), caption=name, width=240)
-        st.caption("Revise contornos e detalhes da peça. Para usar a original sem remoção, escolha essa opção na sequência e gere novo lote.")
+        for photo in selected.photos:
+            if photo.output and (selected.folder / photo.output).exists():
+                st.image(str(selected.folder / photo.output),
+                    caption=f"{photo.output} · {photo.classification.kind.value}", width=240)
+        st.caption("Revise contornos e detalhes. Etiquetas SKU, medidas e peso são mantidos como fotos de apoio; confira se códigos e inscrições continuam legíveis.")
+
+    attention_items = [
+        (product, photo)
+        for product in batch.products
+        for photo in product.photos
+        if photo.review_reason or photo.error or photo.classification.kind == PhotoKind.UNKNOWN
+    ]
+    attention_tab, = st.tabs(["Atenção — edição futura"])
+    with attention_tab:
+        st.caption("Fotos com tipo ou recorte incerto ficam reunidas aqui para conferência e edição posterior. As originais são preservadas na pasta do lote quando essa opção está ativa.")
+        if not attention_items:
+            st.info("Nenhuma foto foi sinalizada para revisão.")
+        for product, photo in attention_items:
+            st.markdown(f"**{product.sku or 'SKU a revisar'} · {photo.path.name}**")
+            st.warning(photo.review_reason or photo.error or "Tipo de foto não identificado.")
+            original_col, edited_col = st.columns(2)
+            try:
+                original_col.image(analysis_bytes(photo.path, 900), caption="Original", width="stretch")
+            except Exception:
+                original_col.warning("Original indisponível para visualização.")
+            if photo.output and (product.folder / photo.output).is_file():
+                edited_col.image(str(product.folder / photo.output), caption="Resultado 1200 × 1200", width="stretch")
+            else:
+                edited_col.info("Ainda não há resultado editado para esta foto.")
 
     st.link_button("Abrir busca manual no Mercado Livre", "https://lista.mercadolivre.com.br/" + quote(selected.identity.query()))
     st.caption("Referências manuais: marque VERIFICADO somente depois de conferir preço e condição no anúncio; "

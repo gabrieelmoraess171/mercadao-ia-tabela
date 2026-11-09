@@ -1,4 +1,4 @@
-IDENTIFICAÇÃO, NOMES E PLANILHA — VERSÃO 1.2.0
+EDIÇÃO RÁPIDA DE FOTOS — VERSÃO 1.2.1
 
 CONEXÃO MERCADO LIVRE: a versão 1.2.0 mostra HTTP e o código OAuth
 reconhecido da recusa, sem expor credenciais. Substitua app.py e os arquivos
@@ -15,7 +15,7 @@ WINDOWS:
 3. Aceite substituir os arquivos existentes. Mescle a pasta services;
    não apague os outros arquivos dessa pasta.
 4. Abra iniciar.bat novamente.
-5. Confirme “Versão 1.2.0” no topo e o modelo gemini-3.5-flash-lite.
+5. Confirme “Versão 1.2.1” no topo e o modelo gemini-3.5-flash-lite.
 6. Informe a chave Gemini no campo protegido se necessário.
 
 Atualize app.py, os arquivos .py de services, check_dependencies.py,
@@ -23,6 +23,11 @@ requirements.txt e o iniciador correspondente ao seu sistema.
 Não altera sua .env, o ambiente .venv, suas fotos nem as pastas de resultados.
 Não é necessário instalar Python novamente. Os iniciadores conferem as versões
 das bibliotecas e aplicam as atualizações necessárias do requirements.txt.
+
+EDIÇÃO RÁPIDA DE FOTOS
+A remoção de fundo usa o modelo local compacto u2netp. Fotos de medidas e
+códigos/detalhes mantêm o enquadramento completo para não perder a trena,
+o contexto ou inscrições pequenas. Confira os casos indicados na aba Atenção.
 
 PARA RECUPERAR UM LOTE QUE FICOU NÃO IDENTIFICADO
 

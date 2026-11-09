@@ -15,6 +15,11 @@ class Options:
     quality: int = 92
 
 
+PHOTO_OUTPUT_KINDS = frozenset({
+    PhotoKind.PRODUCT, PhotoKind.LABEL, PhotoKind.MEASUREMENT, PhotoKind.WEIGHT, PhotoKind.DETAIL,
+})
+
+
 def checkpoint(batch: Batch):
     save_batch(batch)
     export_excel(batch)
@@ -56,14 +61,23 @@ def prepare_batch(paths: list[Path], destination: Path, detector, *, overrides=N
                     classification.sku = classification.sku.strip() or None
                 if classification.confidence < 0.8:
                     classification.sku = None
+                    photo.review_reason = f"Foto {path.name}: etiqueta SKU incerta; confira se o código foi lido corretamente."
                 if classification.sku and len(classification.sku) > 40:
                     classification.sku = None
-            elif classification.kind == PhotoKind.PRODUCT and classification.confidence >= 0.6:
+                if not classification.sku and not photo.review_reason:
+                    photo.review_reason = f"Foto {path.name}: etiqueta sem SKU legível; confira o código."
+            elif classification.kind in (PhotoKind.PRODUCT, PhotoKind.MEASUREMENT, PhotoKind.WEIGHT,
+                                         PhotoKind.DETAIL) and classification.confidence >= 0.6:
                 if classification.confidence < 0.8:
-                    photo.review_reason = f"Foto {path.name}: tipo Produto com confiança moderada ({classification.confidence:.0%}); confira a foto e a identificação."
+                    photo.review_reason = f"Foto {path.name}: tipo {classification.kind.value} com confiança moderada ({classification.confidence:.0%}); confira a foto."
             elif classification.confidence < 0.8:
                 # Sem confiança no tipo, não é possível excluir uma nova etiqueta.
                 photo.classification = Classification(evidence="Tipo de foto incerto; confira a sequência para não misturar peças.")
+                photo.review_reason = photo.classification.evidence
+            if classification.kind == PhotoKind.UNKNOWN:
+                photo.review_reason = classification.evidence or "Tipo de foto não identificado; confira antes de descartar."
+            if classification.kind == PhotoKind.DETAIL:
+                photo.review_reason = photo.review_reason or "Foto de código/detalhe preservada sem recorte agressivo; confirme se a inscrição está legível."
         except AIUnavailableError as exc:
             batch.error = str(exc)
             batch.issues.append(str(exc))
@@ -110,10 +124,23 @@ def process_batch(batch: Batch, ai=None, processor=None, options=None, *, preser
     processor = processor or ImageProcessor(options.quality)
     previous_error = batch.error
     for index, product in enumerate(batch.products):
-        if product.status == "Concluído" and product.outputs and all((product.folder / name).is_file() for name in product.outputs):
-            continue
         products = [photo.path for photo in product.photos
                     if photo.classification.kind == PhotoKind.PRODUCT and not photo.error]
+        output_photos = [photo for photo in product.photos
+                         if photo.classification.kind in PHOTO_OUTPUT_KINDS and not photo.error]
+        # Lotes antigos relacionavam os arquivos gerados apenas às fotos de produto.
+        # Mantenha essa relação ao retomar um lote após incluir fotos de apoio.
+        legacy_photos = [photo for photo in product.photos
+                         if photo.classification.kind == PhotoKind.PRODUCT and photo.output is None]
+        legacy_outputs = set(product.outputs)
+        for photo_index, photo in enumerate(legacy_photos, 1):
+            name = f"{photo_index:02d}.jpg"
+            if name in legacy_outputs and (product.folder / name).is_file():
+                photo.output = name
+        if (product.status == "Concluído" and product.outputs
+                and all((product.folder / name).is_file() for name in product.outputs)
+                and all(photo.output and (product.folder / photo.output).is_file() for photo in output_photos)):
+            continue
         if product.sku in known and product.identity.name == "Peça não identificada":
             product.identity = manual_identity(known[product.sku]["name"])
             product.identity.evidence = ["Nome importado da planilha fornecida para este SKU; aplicação informada pelo usuário."]
@@ -158,37 +185,56 @@ def process_batch(batch: Batch, ai=None, processor=None, options=None, *, preser
                 relocate_sources(batch, renamed_paths)
         product.status = "Removendo fundo"
         save_batch(batch)
-        product_index = 0
+        next_output_index = 1
         for photo_index, photo in enumerate(product.photos, 1):
             if options.save_originals and photo.path.exists():
                 try:
                     copy_original(photo.path, product.folder / "ORIGINAIS", photo_index)
                 except OSError:
                     product.issues.append(f"Não foi possível copiar a original {photo.path.name}.")
-            if photo.classification.kind != PhotoKind.PRODUCT or photo.error:
+            if photo.classification.kind not in PHOTO_OUTPUT_KINDS or photo.error:
                 continue
-            product_index += 1
-            name = f"{product_index:02d}.jpg"
-            if name in product.outputs and (product.folder / name).exists():
+            if photo.output and (product.folder / photo.output).is_file():
                 continue
+            if not photo.output:
+                while True:
+                    name = f"{next_output_index:02d}.jpg"
+                    next_output_index += 1
+                    if name not in product.outputs and not (product.folder / name).exists():
+                        photo.output = name
+                        break
+            name = photo.output
             if progress:
                 progress("Removendo fundo", index, len(batch.products), batch)
             try:
                 if preserve is not None:
                     photo.preserve_original = str(photo.path) in preserve
-                data, warnings = processor.process(photo.path, preserve_original=photo.preserve_original)
+                preserve_context = photo.classification.kind in (PhotoKind.MEASUREMENT, PhotoKind.DETAIL)
+                data, warnings = processor.process(
+                    photo.path, preserve_original=photo.preserve_original or preserve_context)
                 if (product.folder / name).exists():
                     raise FileExistsError("Arquivo já existente; não sobrescrito.")
                 atomic_write(product.folder / name, data)
                 if name not in product.outputs:
                     product.outputs.append(name)
-                product.issues.extend(w for w in warnings if w not in product.issues)
-            except Exception:
-                product.issues.append(f"Foto {photo.path.name}: tratamento falhou. Revise a foto ou use 'Preservar fundo original' e tente novamente.")
+                for warning in warnings:
+                    if warning not in product.issues:
+                        product.issues.append(warning)
+                    if photo.review_reason:
+                        if warning not in photo.review_reason:
+                            photo.review_reason += " " + warning
+                    else:
+                        photo.review_reason = warning
+            except Exception as exc:
+                reason = str(exc) if isinstance(exc, ValueError) else "falha inesperada na remoção do fundo"
+                photo.review_reason = f"Foto {photo.path.name}: {reason} Revise a original ou tente preservar o fundo."
+                product.issues.append(photo.review_reason)
             checkpoint(batch)
         if not products:
             product.issues.append("Nenhuma foto classificada como produto neste grupo.")
-        product.status = "Revisão necessária" if product.issues or len(product.outputs) < len(products) else "Concluído"
+        processed_outputs = sum(bool(photo.output and (product.folder / photo.output).is_file())
+                                for photo in output_photos)
+        product.status = "Revisão necessária" if product.issues or processed_outputs < len(output_photos) else "Concluído"
         if ai:
             batch.usage = dict(ai.usage)
         checkpoint(batch)

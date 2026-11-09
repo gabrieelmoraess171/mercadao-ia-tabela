@@ -1,4 +1,21 @@
-# Validação do precificador — versão 1.2.0
+# Validação do precificador — versão 1.2.1
+
+## Revisão 1.2.1 — edição rápida de imagens
+
+A remoção de fundo foi alterada para o modelo local compacto `u2netp`. Em um Mac,
+seis fotos reais (peça, etiqueta e balança) foram comparadas com `isnet-general-use`:
+inferência média de 0,22 s/foto contra 2,60 s/foto, com recortes amostrados
+visualmente semelhantes. No fluxo final, as 19 fotos dos lotes locais foram
+processadas em 9,19 s (incluindo inicialização e gravação; média de 0,48 s/foto).
+
+Medidas e códigos/detalhes preservam o enquadramento completo para não cortar
+contexto ou inscrições. Foto de código/detalhe fica sinalizada para conferência
+na aba Atenção. As 19 saídas reais foram conferidas em 1200×1200 com canvas branco;
+testes do pipeline, retomada, classificação, dependências e inicialização do
+Streamlit passaram. Fotos e resultados do usuário não foram alterados.
+
+O tempo da análise Gemini depende da rede, da cota e da latência do serviço; não
+faz parte da medição local de remoção do fundo.
 
 ## Revisão funcional da versão 1.2.0
 

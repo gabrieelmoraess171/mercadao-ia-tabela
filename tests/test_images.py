@@ -125,7 +125,22 @@ def test_preserve_original_does_not_call_rembg(photo, monkeypatch):
     monkeypatch.setattr(rembg, "remove", lambda *a, **kw: pytest.fail("Não deve remover o fundo"))
     data, warnings = ImageProcessor().process(photo(), preserve_original=True)
     assert Image.open(io.BytesIO(data)).size == (1200, 1200)
-    assert "preservado" in warnings[0]
+    assert warnings == []
+
+
+def test_default_model_is_compact_u2netp(photo, monkeypatch):
+    import rembg
+    requested = []
+    monkeypatch.setattr(rembg, "new_session", lambda model, **kwargs: requested.append(model) or object())
+    def remove(image, **kwargs):
+        output = image.copy()
+        alpha = Image.new("L", image.size)
+        ImageDraw.Draw(alpha).rectangle((30, 30, 170, 70), fill=255)
+        output.putalpha(alpha)
+        return output
+    monkeypatch.setattr(rembg, "remove", remove)
+    ImageProcessor().process(photo())
+    assert requested == ["u2netp"]
 
 
 @pytest.mark.skipif(not os.getenv("RUN_MODEL_TEST"), reason="Ative RUN_MODEL_TEST=1 para o modelo ONNX real")

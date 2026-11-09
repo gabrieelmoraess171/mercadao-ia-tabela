@@ -99,10 +99,11 @@ def test_resuming_completed_product_restores_missing_output(photo, tmp_path):
     process_batch(batch, processor=Processor())
     product = batch.products[0]
     assert product.status == "Concluído"
-    output = product.folder / "01.jpg"
+    product_photo = next(photo for photo in product.photos if photo.classification.kind == PhotoKind.PRODUCT)
+    output = product.folder / product_photo.output
     output.unlink()
     process_batch(batch, processor=Processor())
-    assert output.exists() and product.outputs == ["01.jpg"]
+    assert output.exists() and product.outputs == ["01.jpg", "02.jpg"]
 
 
 def test_sku_illegible_keeps_label_classification_without_ai(photo, monkeypatch):
@@ -158,7 +159,7 @@ def test_preserve_choice_survives_failure_and_reopening(photo, tmp_path):
             captured.append(preserve_original)
             return ImageProcessor().process(path, preserve_original=preserve_original)
     process_batch(restored, processor=Processor())
-    assert captured == [True]
+    assert captured == [False, True]
     assert (restored.products[0].folder / "01.jpg").exists()
 
 

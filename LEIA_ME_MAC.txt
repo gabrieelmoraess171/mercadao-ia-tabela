@@ -1,4 +1,4 @@
-PRECIFICADOR DE PEÇAS — macOS — VERSÃO 1.2.0
+PRECIFICADOR DE PEÇAS — macOS — VERSÃO 1.2.1
 
 PRIMEIRA INSTALAÇÃO
 1. Use macOS 13 Ventura ou posterior (Intel ou Apple Silicon).
@@ -24,7 +24,12 @@ PARA ATUALIZAR O MAC JÁ INSTALADO
 4. No Terminal dessa pasta, execute:
     bash iniciar.command
    As dependências serão conferidas e atualizadas se as versões não corresponderem.
-   No Mac usa ONNX Runtime 1.23.2, NumPy 2.3.5 e Numba 0.62.1. Confirme Versão 1.2.0.
+   No Mac usa ONNX Runtime 1.23.2, NumPy 2.3.5 e Numba 0.62.1. Confirme Versão 1.2.1.
+
+EDIÇÃO DE FOTOS
+A remoção de fundo usa o modelo local compacto u2netp para reduzir o tempo por foto.
+Fotos de medidas e códigos/detalhes mantêm o enquadramento completo para não perder
+a trena, o contexto nem inscrições pequenas. Confira casos sinalizados na aba Atenção.
 
 CORREÇÃO DOS SELETORES
 No macOS, selecionar pasta ou planilha usa o seletor do sistema em um processo

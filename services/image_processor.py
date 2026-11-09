@@ -82,7 +82,7 @@ class ImageProcessor:
     def process(self, path: Path, preserve_original: bool = False) -> tuple[bytes, list[str]]:
         with open_image(path) as image:
             if preserve_original:
-                return white_square(image, self.quality), ["Fundo original preservado por escolha do usuário."]
+                return white_square(image, self.quality), []
             from rembg import new_session, remove
             if self._session is None:
                 self._session = new_session("u2netp", providers=["CPUExecutionProvider"])
@@ -99,4 +99,12 @@ class ImageProcessor:
             if visible < 0.001:
                 raise ValueError("Recorte muito pequeno; revisão necessária para evitar perda da peça.")
             image.putalpha(mask)
-            return white_square(image, self.quality), []
+            warnings = []
+            if visible < 0.01:
+                warnings.append("Área identificada pequena; confira se a peça e os detalhes importantes foram mantidos.")
+            if visible > 0.98:
+                warnings.append("Quase toda a foto foi mantida; confira se o fundo e itens secundários foram removidos.")
+            left, top, right, bottom = alpha_bounds
+            if left == 0 or top == 0 or right == image.width or bottom == image.height:
+                warnings.append("O recorte encosta na borda da foto; confira se a peça ou uma etiqueta foi cortada na origem.")
+            return white_square(image, self.quality), warnings

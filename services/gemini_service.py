@@ -122,9 +122,12 @@ class GeminiService:
 
     def classify(self, path: Path) -> Classification:
         return self.structured(
-            "Classifique a foto de desmontagem automotiva: Etiqueta SKU, Produto, Medida, Peso ou Não identificada. "
+            "Classifique a foto de desmontagem automotiva: Etiqueta SKU, Produto, Medida, Peso, Código/Detalhe ou Não identificada. "
             "Uma etiqueta SKU é a foto intencional de uma etiqueta de estoque, não uma gravação OEM na peça. "
             "Para etiqueta, copie o SKU literalmente como string mantendo zeros iniciais. "
+            "Use Código/Detalhe para uma foto aproximada em que a inscrição, o código OEM ou uma característica pequena seja o assunto principal, "
+            "em vez de uma vista geral da peça. "
+            "Use Medida quando a trena/régua e a peça ao lado forem evidência importante; não descarte marcações nem contexto de medição. "
             "Se for etiqueta ilegível, mantenha kind Etiqueta SKU e sku null. "
             "Para demais tipos, sku null. Confidence mede a certeza do TIPO DA FOTO, não a certeza de marca, modelo ou aplicação da peça. "
             "Uma foto que mostra uma peça é Produto mesmo quando o nome exato ou o veículo ainda não são conhecidos. "

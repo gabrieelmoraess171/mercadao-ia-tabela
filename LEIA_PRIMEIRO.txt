@@ -1,4 +1,4 @@
-PRECIFICADOR DE PEÇAS — VERSÃO 1.2.0
+PRECIFICADOR DE PEÇAS — VERSÃO 1.2.1
 
 MAC
 Requer macOS 13 Ventura ou posterior (Intel ou Apple Silicon) e Python 3.12.

@@ -2,9 +2,9 @@
 
 Aplicativo **local** em Python/Streamlit para ordenar fotografias, reconhecer etiquetas SKU, identificar peças com Gemini, remover fundo com ONNX CPU e criar uma planilha Excel. Não usa banco de dados, contas de usuários, nuvem de armazenamento ou sincronização de fotos.
 
-**Versão 1.2.0 — revisão de identificação, nomes, planilhas, retomada e conexão Mercado Livre; pacotes Mac/Windows.** Para atualizar uma instalação existente preservando Python, fotos e resultados, consulte [COMO_ATUALIZAR.txt](COMO_ATUALIZAR.txt).
+**Versão 1.2.1 — edição rápida de imagens, fotos de evidência e revisão visual; pacotes Mac/Windows.** Para atualizar uma instalação existente preservando Python, fotos e resultados, consulte [COMO_ATUALIZAR.txt](COMO_ATUALIZAR.txt).
 
-**Baixar os pacotes prontos:** [Mac 1.2.0](https://github.com/gabrieelmoraess171/mercadao-ia-tabela/raw/refs/heads/main/downloads/precificador-mac-1.2.0.zip) · [Windows 1.2.0](https://github.com/gabrieelmoraess171/mercadao-ia-tabela/raw/refs/heads/main/downloads/precificador-windows-1.2.0.zip). Ambos requerem Python 3.12. As instruções estão dentro de cada ZIP.
+**Baixar os pacotes prontos:** [Mac 1.2.1](https://github.com/gabrieelmoraess171/mercadao-ia-tabela/raw/refs/heads/main/downloads/precificador-mac-1.2.1.zip) · [Windows 1.2.1](https://github.com/gabrieelmoraess171/mercadao-ia-tabela/raw/refs/heads/main/downloads/precificador-windows-1.2.1.zip). Ambos requerem Python 3.12. As instruções estão dentro de cada ZIP.
 
 ## Começar no Mac
 
@@ -21,7 +21,7 @@ Para atualizar o Mac já instalado, substitua `app.py`, os arquivos `.py` de `se
 
 1. Instale **Python 3.12 de 64 bits**, de [python.org](https://www.python.org/downloads/windows/), com pip, launcher `py` e Tcl/Tk (componentes do instalador). Marque a opção de adicionar Python ao PATH.
 2. Copie a pasta completa deste projeto para seu computador.
-3. Dê dois cliques em **`iniciar.bat`**. Na primeira vez ele cria `.venv`, instala as dependências e baixa o modelo local `u2netp` (~4,6 MB, com verificação de integridade pelo rembg). Aguarde a instalação e mantenha a janela aberta.
+3. Dê dois cliques em **`iniciar.bat`**. Na primeira vez ele cria `.venv`, instala as dependências e baixa o modelo local compacto `u2netp` (~4,6 MB). Aguarde a instalação e mantenha a janela aberta.
 4. O navegador abre o endereço local **127.0.0.1:8501**. Se abrir antes da inicialização terminar, atualize a página após aparecer a mensagem do Streamlit.
 5. Informe a chave Gemini no campo protegido ou copie `.env.example` para `.env` e configure `GEMINI_API_KEY`. O arquivo `.env` é ignorado pelo Git. Nenhuma chave é gravada nas planilhas ou no histórico dos lotes.
 
@@ -34,7 +34,7 @@ Opcional: instale Tesseract OCR pelo projeto [UB Mannheim](https://github.com/UB
 1. Prefira **Pasta local** para lotes grandes: o programa lê uma imagem por vez. O upload do Streamlit aceita vários arquivos, mas mantém os arquivos enviados em memória; não é recomendado para 500 fotos de 100 MB. O limite de **100 MB é individual** e não do lote.
 2. Carregue as fotos. JPG/JPEG, PNG, HEIC e HEIF são decodificados e têm orientação EXIF corrigida. A lista começa em ordem natural (`foto2` antes de `foto10`). Altere **ORDEM** para corrigir a sequência. Expanda miniaturas para conferir. Pastas são lidas sem recursão para não incluir acidentalmente resultados anteriores.
 3. Escolha o destino. O seletor nativo abre **no computador que executa o Python**. Em um ambiente remoto sem desktop, digite o caminho local desse ambiente. Para salvar no computador do usuário, execute o aplicativo nesse computador.
-4. Clique em **INICIAR PROCESSAMENTO**. A etiqueta inicia um grupo e não existe quantidade fixa de fotos por peça. OCR exige o marcador `SKU`; inscrições OEM sozinhas não iniciam grupos. Gemini classifica fotos de produto, etiqueta, medida e peso. Só produtos passam pelo removedor de fundo.
+4. Clique em **INICIAR PROCESSAMENTO**. A etiqueta inicia um grupo e não existe quantidade fixa de fotos por peça. OCR exige o marcador `SKU`; inscrições OEM sozinhas não iniciam grupos. Gemini classifica fotos de produto, etiqueta, medida, peso e código/detalhe. O modelo compacto remove o fundo das vistas de produto e etiqueta/balança; as saídas ficam em imagem quadrada 1200 × 1200. Fotos de medida e código/detalhe mantêm o enquadramento completo nessa tela quadrada, evitando apagar a trena, o contexto da medição ou inscrições pequenas. Confira inscrições e objetos próximos na aba **Atenção — edição futura** quando o sistema sinalizar dúvida.
 5. Confira os resultados. Por padrão a pesquisa aguarda sua revisão dos nomes; salve alterações e clique em **Pesquisar preços dos nomes salvos**. Desmarque “Conferir nomes antes da pesquisa” para executar as etapas em sequência. Pesquisar preços também pode ser desativado.
 6. Confira referências, informe os valores finais desejados e salve no Excel. A coluna **VALOR FINAL começa vazia** para peças novas, mesmo quando há preços de referência. Valores já existentes na planilha selecionada são preservados.
 
